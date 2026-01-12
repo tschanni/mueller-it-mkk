@@ -1,0 +1,9 @@
+.gallery { display: flex; gap: 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; flex: 1; }
+.thumb { display: flex; flex-direction: column; gap: 4px; align-items: center; padding: 6px; }
+.thumb img { width: 96px; height: 72px; image-rendering: pixelated; background: #fff; border: 1px solid #000; }
+.thumb .name { font: 12px 'Tahoma', 'MS Sans Serif', Arial, sans-serif; }
+.viewer { flex: 1; background: #dfdfdf; border: 1px solid #fff; box-shadow: inset -1px -1px 0 #000, inset 1px 1px 0 #7f7f7f; }
+.viewer-header { display: flex; justify-content: space-between; padding: 6px; font-weight: bold; }
+.viewer-body { padding: 6px; }
+.viewer-body img { max-width: 100%; height: auto; image-rendering: pixelated; }

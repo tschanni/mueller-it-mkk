@@ -1,0 +1,26 @@
+.window-area {
+  position: absolute;
+  inset: 0;
+  padding-bottom: 34px; /* Platz für Taskbar */
+  pointer-events: none; /* Leerer Bereich blockiert keine Klicks auf Desktop-Icons */
+}
+
+.window {
+  position: absolute;
+  min-width: 320px; /* größere Mindestbreite */
+  min-height: 200px; /* Mindesthöhe */
+  background: #c0c0c0;
+  pointer-events: auto; /* Fenster bleiben interaktiv */
+}
+
+.title-bar.focused {
+  filter: none; /* Fokus-Flag, keine modernen Effekte */
+}
+
+.window-body {
+  padding: 8px;
+}
+
+.hidden {
+  display: none;
+}

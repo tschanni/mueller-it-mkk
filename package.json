@@ -11,6 +11,8 @@
     "@types/node": "^16.18.126",
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
+    "98.css": "^0.1.21",
+    "classnames": "^2.5.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-scripts": "5.0.1",

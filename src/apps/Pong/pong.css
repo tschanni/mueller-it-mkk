@@ -1,0 +1,25 @@
+.pong-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pong-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pong-toolbar .btn {
+  font-family: "MS Sans Serif", Tahoma, sans-serif;
+  border: 2px outset #fff;
+  background: #c0c0c0;
+  padding: 4px 8px;
+}
+.pong-toolbar .hint {
+  color: #000;
+  font-size: 12px;
+}
+.pong-canvas {
+  image-rendering: pixelated;
+  border: 2px inset #fff;
+  background: #008080;
+}

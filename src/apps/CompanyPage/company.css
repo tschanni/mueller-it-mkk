@@ -1,0 +1,54 @@
+.company-page {
+  font-family: 'Tahoma', 'MS Sans Serif', Arial, sans-serif;
+}
+
+/* Layout Container */
+.company-page.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr; /* Sidebar breiter */
+  gap: 16px; /* mehr Abstand */
+}
+
+/* Sidebar mit Logo und Tabs */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.logo-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.logo { width: 96px; height: 96px; image-rendering: pixelated; } /* größeres Logo */
+.logo-title { font-weight: bold; font-size: 14px; text-align: center; }
+
+.tabbar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tab {
+  font: 13px 'Tahoma', 'MS Sans Serif', Arial, sans-serif; /* größere Tabs */
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.tab.active { outline: 2px solid #000; }
+
+/* Content Bereich */
+.content {
+  background: #dfdfdf;
+  border: 1px solid #fff;
+  box-shadow: inset -1px -1px 0 #000, inset 1px 1px 0 #7f7f7f;
+  padding: 16px; /* mehr Innenabstand */
+  font-size: 14px; /* Basisschrift größer */
+}
+
+h1, h2 { font-weight: bold; }
+h2 { font-size: 16px; margin-top: 0; }
+p { line-height: 1.5; }
+ul { margin-left: 20px; }

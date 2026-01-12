@@ -1,0 +1,10 @@
+.music-app { padding: 8px; }
+.music-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.music-item { display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px solid #000; background: #c0c0c0; padding: 10px; cursor: pointer; }
+.music-item:hover { background: #d0d0d0; }
+.music-thumb { width: 96px; height: 72px; display: flex; align-items: center; justify-content: center; border: 1px dashed #666; background: #eee; margin-bottom: 8px; }
+.note { font-size: 32px; }
+.music-label { font-family: "MS Sans Serif", Arial, sans-serif; font-size: 12px; }
+.player { display: flex; flex-direction: column; gap: 8px; }
+.player-header { display: flex; align-items: center; gap: 8px; }
+.player-frame { border: 2px inset #fff; background: #000; }

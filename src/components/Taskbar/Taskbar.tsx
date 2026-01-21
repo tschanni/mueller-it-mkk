@@ -3,7 +3,7 @@ import './taskbar.css';
 import { useWindowManager } from '../../state/WindowManagerContext';
 
 export const Taskbar: React.FC = () => {
-  const { windows, toggleMinimize } = useWindowManager();
+  const { windows, toggleMinimize, openWindow } = useWindowManager();
 
   const time = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
@@ -24,6 +24,9 @@ export const Taskbar: React.FC = () => {
             {w.title}
           </button>
         ))}
+      </div>
+      <div>
+        <button onClick={() => openWindow({ title: 'Impressum', app: 'impressum', x: 200, y: 150 })}>Impressum</button>
       </div>
       <div className="clock" aria-label="Uhr">
         {time}

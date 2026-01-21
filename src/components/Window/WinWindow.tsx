@@ -6,6 +6,7 @@ import { Gallery } from '../../apps/Gallery/Gallery';
 import { Calculator } from '../../apps/Calculator/Calculator';
 import { Pong } from '../../apps/Pong/Pong';
 import { Music } from '../../apps/Music/Music';
+import { Impressum } from '../../apps/Impressum/Impressum';
 
 export const WinWindow: React.FC<{ win: Win98Window }> = ({ win }) => {
   const { closeWindow, minimizeWindow, focusWindow, moveWindow, focusedId } = useWindowManager();
@@ -69,6 +70,7 @@ export const WinWindow: React.FC<{ win: Win98Window }> = ({ win }) => {
         {win.app === 'calculator' && <Calculator />}
         {win.app === 'pong' && <Pong />}
         {win.app === 'music' && <Music />}
+        {win.app === 'impressum' && <Impressum />}
       </div>
     </div>
   );

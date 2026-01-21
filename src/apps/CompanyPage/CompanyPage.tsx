@@ -41,14 +41,14 @@ export const CompanyPage: React.FC = () => {
           <section>
             <h4>Über uns</h4>
             <p>
-              Willkommen bei der <strong>Müller IT MKK GbR</strong>.
+              Willkommen bei der <strong>Müller IT MKK</strong>.
             </p>
             <p>
               Wir möchten Ihnen gerne IT-Dienstleistungen anbieten, die nicht nach begleichen der Rechnung verschwinden, sondern auf langfristige Zusammenarbeit setzen. <br />
               Gerne stehen wir Ihnen bei allen Fragen rund um Ihre IT zur Verfügung.
               Dabei spielt es keine Rolle ob Sie Probleme mit ihrem vorhandenen System haben oder eine komplett neue Infrastruktur aufbauen möchten.
             </p>
-              Die <strong>Müller IT MKK GbR</strong> steht Ihnen als verlässlicher Partner zur Seite.
+              Die <strong>Müller IT MKK</strong> steht Ihnen als verlässlicher Partner zur Seite.
           </section>
         )}
 
@@ -70,7 +70,6 @@ export const CompanyPage: React.FC = () => {
           <section>
             <h4>Kontakt</h4>
             <p>E-Mail: yannik@mueller-it-mkk.de</p>
-            <p>Telefon: +49 (0) 000 000000</p>
           </section>
         )}
       </main>

@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/static/css/main.94341619.css",
-    "main.js": "/static/js/main.919b3813.js",
+    "main.css": "/static/css/main.343ed97e.css",
+    "main.js": "/static/js/main.b1a115ca.js",
     "static/js/453.5a64a7e2.chunk.js": "/static/js/453.5a64a7e2.chunk.js",
     "static/media/Mueller_IT.png": "/static/media/Mueller_IT.9696e941f7fdc78c0c90.png",
     "static/media/mueller-it-mkk-logo.png": "/static/media/mueller-it-mkk-logo.62b4bc42c0386d82b825.png",
@@ -11,12 +11,12 @@
     "static/media/ms_sans_serif.woff2": "/static/media/ms_sans_serif.0348082abb503fb6a8c2.woff2",
     "static/media/ms_sans_serif_bold.woff2": "/static/media/ms_sans_serif_bold.7fcf57cc6e87ecddbf64.woff2",
     "index.html": "/index.html",
-    "main.94341619.css.map": "/static/css/main.94341619.css.map",
-    "main.919b3813.js.map": "/static/js/main.919b3813.js.map",
+    "main.343ed97e.css.map": "/static/css/main.343ed97e.css.map",
+    "main.b1a115ca.js.map": "/static/js/main.b1a115ca.js.map",
     "453.5a64a7e2.chunk.js.map": "/static/js/453.5a64a7e2.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.94341619.css",
-    "static/js/main.919b3813.js"
+    "static/css/main.343ed97e.css",
+    "static/js/main.b1a115ca.js"
   ]
 }

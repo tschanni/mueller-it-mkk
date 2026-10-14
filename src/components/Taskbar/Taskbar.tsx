@@ -3,7 +3,7 @@ import './taskbar.css';
 import { useWindowManager } from '../../state/WindowManagerContext';
 
 export const Taskbar: React.FC = () => {
-  const { windows, toggleMinimize, openWindow } = useWindowManager();
+  const { windows, focusedId, restoreWindow, minimizeWindow, openWindow } = useWindowManager();
 
   const time = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 
@@ -17,8 +17,8 @@ export const Taskbar: React.FC = () => {
         {windows.map(w => (
           <button
             key={w.id}
-            className={`task-button ${w.isMinimized ? '' : 'active'}`}
-            onClick={() => toggleMinimize(w.id)}
+            className={`task-button ${focusedId === w.id ? 'active' : ''}`}
+            onClick={() => focusedId === w.id && !w.isMinimized ? minimizeWindow(w.id) : restoreWindow(w.id)}
             title={w.title}
           >
             {w.title}

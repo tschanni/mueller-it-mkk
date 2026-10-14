@@ -24,3 +24,6 @@
 .hidden {
   display: none;
 }
+
+.gameserver-window{display:flex;flex-direction:column;resize:both;overflow:hidden;min-width:min(360px,100vw);min-height:300px;max-width:100vw;max-height:calc(100dvh - 34px);box-sizing:border-box}.gameserver-window>.window-body{flex:1;min-height:0;margin:0;overflow:hidden}.window.maximized{resize:none}.window.hidden{display:none}.title-bar-controls{flex-shrink:0}.title-bar-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:600px){.gameserver-window{left:0!important;top:0!important;width:100vw!important;height:calc(100dvh - 34px)!important}}

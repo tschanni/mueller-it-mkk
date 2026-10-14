@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
-export type AppComponentType = 'company' | 'gallery' | 'calculator' | 'pong' | 'music';
+export type AppComponentType = 'company' | 'gallery' | 'calculator' | 'pong' | 'music' | 'impressum' | 'gameservers';
 
 export interface Win98Window {
   id: string;
@@ -10,6 +10,7 @@ export interface Win98Window {
   y: number;
   width?: number;
   height?: number;
+  isMaximized?: boolean;
   isMinimized: boolean;
   zIndex: number;
 }
@@ -23,6 +24,7 @@ interface WindowManagerContextValue {
   restoreWindow: (id: string) => void;
   toggleMinimize: (id: string) => void;
   focusWindow: (id: string) => void;
+  maximizeWindow: (id: string) => void;
   moveWindow: (id: string, x: number, y: number) => void;
 }
 
@@ -36,7 +38,7 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     title: 'Müller IT MKK',
     app: 'company',
     x: 80,
-    y: 60,
+    y: 100,
     isMinimized: false,
     zIndex: 1,
   }]);
@@ -80,6 +82,8 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     setWindows((prev) => prev.map(w => w.id === id ? { ...w, zIndex: topZ + 1 } : w));
   }, [topZ]);
 
+  const maximizeWindow = useCallback((id: string) => { setWindows(prev => prev.map(w => w.id === id ? { ...w, isMaximized: !w.isMaximized } : w)); }, []);
+
   const moveWindow = useCallback((id: string, x: number, y: number) => {
     setWindows((prev) => prev.map(w => w.id === id ? { ...w, x, y } : w));
   }, []);
@@ -94,7 +98,8 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     toggleMinimize,
     focusWindow,
     moveWindow,
-  }), [windows, focusedId, openWindow, closeWindow, minimizeWindow, restoreWindow, toggleMinimize, focusWindow, moveWindow]);
+    maximizeWindow,
+  }), [windows, focusedId, openWindow, closeWindow, minimizeWindow, restoreWindow, toggleMinimize, focusWindow, moveWindow, maximizeWindow]);
 
   return (
     <WindowManagerContext.Provider value={value}>{children}</WindowManagerContext.Provider>

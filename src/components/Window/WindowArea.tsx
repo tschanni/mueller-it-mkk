@@ -1,6 +1,5 @@
 import React from 'react';
 import { useWindowManager } from '../../state/WindowManagerContext';
-import { Win98Window } from '../../state/WindowManagerContext';
 import { WinWindow } from './WinWindow';
 import './window.css';
 

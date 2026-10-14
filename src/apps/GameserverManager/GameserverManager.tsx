@@ -87,10 +87,41 @@ export function GameserverManager() {
  <div role="tabpanel" id={'gsm-panel-' + tab} aria-labelledby={'gsm-tab-' + tab} className="gsm-panel">
  {loading && <p role="status">Server werden geladen…</p>}{error && <p role="alert">{error} <button onClick={refresh}>Erneut versuchen</button></p>}
  {!loading && !error && !servers.length && <p>Keine Gameserver eingerichtet.</p>}
- {tab === 0 && !!servers.length && <><div className="gsm-list"><table><thead><tr>{['Server', 'Spiel', 'Status', 'Spieler', 'Version', 'Latenz'].map(h => <th key={h} scope="col">{h}</th>)}</tr></thead><tbody>{servers.map(s => <tr key={s.id} aria-selected={server?.id === s.id} onClick={() => setSelected(s.id)} onDoubleClick={() => { setSelected(s.id); setTab(1); }}><td><button className="gsm-server-link" onClick={() => setSelected(s.id)} onKeyDown={e => { if (e.key === 'Enter') {
-        setSelected(s.id);
-        setTab(1);
-    } }}>{s.name}</button></td><td>{s.gameType === 'MINECRAFT' ? 'Minecraft' : s.gameType === 'TERRARIA' ? 'Terraria' : s.gameType}</td><td><Status server={s}/></td><td>{value(s.onlinePlayers)} / {value(s.maxPlayers)}</td><td>{value(s.gameVersion)}</td><td>{value(s.latencyMs, ' ms')}</td></tr>)}</tbody></table></div>{server && <Fields title="Ausgewählter Server" fields={[['Adresse', address], ['Überwachung', server.capability === 'TCP_ONLY' ? 'Nur TCP erreichbar; Spielstatus und Spieler unbekannt.' : server.statusMessage], ['Letzte Prüfung', date(server.lastCheckedAt)]]}/>}<p>Server doppelt anklicken oder mit Enter öffnen.</p></>}
+ {tab === 0 && !!servers.length && <>
+   <div className="gsm-cards" aria-label="Gameserver">
+     {servers.map(s => <article key={s.id} className={'gsm-card' + (server?.id === s.id ? ' gsm-card-selected' : '')}
+       onClick={() => setSelected(s.id)} onDoubleClick={() => { setSelected(s.id); setTab(1); }}>
+       <div className="gsm-card-icon"><img src={s.gameType === 'MINECRAFT' ? '/retro-minecraft.svg' : s.gameType === 'TERRARIA' ? '/retro-terraria.svg' : '/retro-server.svg'} alt="" />
+         <span>{s.gameType === 'MINECRAFT' ? 'Minecraft' : s.gameType === 'TERRARIA' ? 'Terraria' : s.gameType}</span>
+       </div>
+       <div className="gsm-card-content">
+         <div className="gsm-card-heading">
+           <h3><button className="gsm-server-link" aria-pressed={server?.id === s.id} onClick={() => setSelected(s.id)}
+             onKeyDown={e => { if (e.key === 'Enter') { setSelected(s.id); setTab(1); } }}>{s.name}</button></h3>
+           <Status server={s} />
+         </div>
+         <dl className="gsm-card-facts">
+           <div><dt>Spieler</dt><dd>{value(s.onlinePlayers)} / {value(s.maxPlayers)}</dd></div>
+           <div><dt>Version</dt><dd>{value(s.gameVersion)}</dd></div>
+           <div><dt>Latenz</dt><dd>{value(s.latencyMs, ' ms')}</dd></div>
+           <div><dt>Sollstatus</dt><dd>{statusText(s.desiredState)}</dd></div>
+           <div><dt>Adresse</dt><dd>{s.connection.host}</dd></div>
+           <div><dt>Monitoring</dt><dd>{value(s.capability)}</dd></div>
+           <div><dt>Letzte Prüfung</dt><dd>{date(s.lastCheckedAt)}</dd></div>
+           <div><dt>Letzte erfolgreiche Prüfung</dt><dd>{date(s.lastSuccessfulCheckAt)}</dd></div>
+         </dl>
+         <div className="gsm-card-message">
+           <p>{s.capability === 'TCP_ONLY' ? 'Nur TCP erreichbar; Spielstatus und Spieler unbekannt.' : value(s.statusMessage)}</p>
+           {s.capability === 'TCP_ONLY' && s.statusMessage && <p>{s.statusMessage}</p>}
+           {s.motd && <p><strong>MOTD:</strong> {s.motd}</p>}
+           {s.lastError && <p><strong>Hinweis ({s.lastError.code}):</strong> {s.lastError.message}</p>}
+         </div>
+         <div className="gsm-card-footer"><span>{s.slug} · ID: {s.id}</span><button onClick={() => { setSelected(s.id); setTab(1); }}>Details anzeigen</button></div>
+       </div>
+     </article>)}
+   </div>
+   <p>Server doppelt anklicken oder mit Enter öffnen.</p>
+ </>}
  {tab !== 0 && server && <><label className="gsm-selector">Server: <select value={server.id} onChange={e => setSelected(e.target.value)}>{servers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>{busy && <p role="status">Daten werden geladen…</p>}{detailError && <p role="alert">{detailError} <button onClick={refresh}>Erneut versuchen</button></p>}
  {tab === 1 && <><div className="gsm-details"><Fields title="Allgemein" fields={[['Servername', server.name], ['Spiel', server.gameType], ['Status', <Status server={server}/>], ['Version', value(server.gameVersion)], ['Letzte erfolgreiche Prüfung', date(server.lastSuccessfulCheckAt)]]}/><Fields title="Verbindung" fields={[['Hostname', server.connection.host], ['Port', server.connection.port], ['Latenz', value(server.latencyMs, ' ms')], ['Monitoring', server.capability], ['Letzte Prüfung', date(server.lastCheckedAt)]]}/><Fields title="Spieler" fields={[['Aktuell', value(server.onlinePlayers)], ['Maximum', value(server.maxPlayers)], ['Spielerliste', data.players ? data.players.available ? data.players.players.join(', ') || 'Keine Spieler gemeldet.' : 'Spielernamen nicht öffentlich verfügbar.' : 'Nicht verfügbar']]}/><Fields title="Weitere Informationen" fields={[['Statusmeldung', server.statusMessage], ['MOTD', value(server.motd)], ['Monitoring-Hinweis', server.lastError?.message || 'Keine Warnung gemeldet.']]}/></div><button onClick={async () => { try {
             await navigator.clipboard.writeText(address);

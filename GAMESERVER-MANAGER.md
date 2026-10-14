@@ -4,9 +4,9 @@ Integrated into the existing Create React App / React Context desktop and 98.css
 
 ## Source
 
-- New: src/apps/GameserverManager/{GameserverManager.tsx,gameserver.css,api.ts,useServers.ts,GameserverManager.test.tsx}, public/retro-server.svg, .env.example.
+- New: src/apps/GameserverManager/{GameserverManager.tsx,gameserver.css,api.ts,useServers.ts,GameserverManager.test.tsx}, public/retro-server.svg, public/retro-minecraft.svg, public/retro-terraria.svg, .env.example.
 - Updated: Desktop, AppIcon, WinWindow, WindowArea, Taskbar, WindowManagerContext, window.css, App.test.tsx, tsconfig.json, .gitignore, Music.tsx (unused import cleanup).
-- Components: German keyboard-accessible tabs, ListView overview, server group boxes, clipboard action, lightweight SVG history plots, paginated event list with selection, connection/status bar.
+- Components: German keyboard-accessible tabs, responsive raised server cards with large pixel game icons and complete summary information, server group boxes, clipboard action, lightweight SVG history plots, paginated event list with selection, connection/status bar.
 - AppIcon supports selection followed by double-click or Enter for the new app. Existing icons retain their behavior. The manager has one instance and reopens by restoring it. The shared window component gains maximize/restore; the manager can be resized using its native resize grip.
 - tsconfig moduleResolution changed from bundler (unsupported by installed TypeScript 4.9) to node, compatible with CRA.
 - Gallery is mocked only in tests because its webpack require.context cannot run under Jest. The obsolete starter test was replaced.

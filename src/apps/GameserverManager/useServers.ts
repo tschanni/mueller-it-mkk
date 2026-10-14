@@ -1,18 +1,22 @@
 import { useEffect, useState } from 'react';
 import { API, GameServer, parseServers, request } from './api';
+import { useServerCache } from './ServerCache';
 export function useServers() {
-    const [servers, setServers] = useState<GameServer[]>([]);
+    const cache = useServerCache();
+    const cached = cache?.read();
+    const loadCached = cache?.load;
+    const [servers, setServers] = useState<GameServer[]>(() => cached?.servers.map(s => ({ ...s, stale: true })) || []);
     const [error, setError] = useState('');
-    const [loading, setLoading] = useState(true);
-    const [connection, setConnection] = useState('Verbindung wird hergestellt');
-    const [updated, setUpdated] = useState<Date | null>(null);
+    const [loading, setLoading] = useState(!cached);
+    const [connection, setConnection] = useState(cached ? 'Zwischengespeicherte Daten – Aktualisierung läuft' : 'Verbindung wird hergestellt');
+    const [updated, setUpdated] = useState<Date | null>(cached?.updated || null);
     const [revision, setRevision] = useState(0);
     const [retry, setRetry] = useState(0);
     useEffect(() => {
         let closed = false, pending = false, again = false, live = false, lastHeartbeat = 0;
         const abort = new AbortController();
         let debounce: ReturnType<typeof setTimeout> | undefined;
-        const refresh = async () => {
+        const refresh = async (reusePreload = false) => {
             if (pending) {
                 again = true;
                 return;
@@ -21,11 +25,18 @@ export function useServers() {
             try {
                 do {
                     again = false;
-                    const data = parseServers(await request<unknown>('servers', abort.signal));
+                    let result;
+                    try {
+                        result = loadCached ? await loadCached(abort.signal, reusePreload) : { servers: parseServers(await request<unknown>('servers', abort.signal)), updated: new Date() };
+                    } catch (e) {
+                        if (!loadCached || !reusePreload || abort.signal.aborted) throw e;
+                        result = loadCached ? await loadCached(abort.signal) : { servers: parseServers(await request<unknown>('servers', abort.signal)), updated: new Date() };
+                    }
+                    reusePreload = false;
                     if (!closed) {
-                        setServers(data);
+                        setServers(result.servers);
                         setError('');
-                        setUpdated(new Date());
+                        setUpdated(result.updated);
                         setRevision(n => n + 1);
                         setConnection(live ? 'Live-Verbindung hergestellt' : 'Abfragebetrieb (30 Sekunden)');
                     }
@@ -54,13 +65,13 @@ export function useServers() {
                 stream.addEventListener(type, schedule);
             stream.onerror = () => { live = false; setConnection('Live-Verbindung unterbrochen – Abfragebetrieb'); };
         }
-        void refresh();
+        void refresh(true);
         const timer = setInterval(() => { if (live && Date.now() - lastHeartbeat > 45000) {
             live = false;
             setConnection('Live-Verbindung unterbrochen – Abfragebetrieb');
         } void refresh(); }, 30000);
         return () => { closed = true; abort.abort(); stream?.close(); clearInterval(timer); if (debounce)
             clearTimeout(debounce); };
-    }, [retry]);
+    }, [retry, loadCached]);
     return { servers, error, loading, connection, updated, revision, refresh: () => setRetry(n => n + 1) };
 }

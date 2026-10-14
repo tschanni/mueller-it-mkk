@@ -1,5 +1,13 @@
 # Gameserver-Manager
 
+The page-level ServerCacheProvider preloads the public server list when the
+website opens. Results stay in memory for the current page session; the manager
+reuses an in-flight preload or a result younger than 30 seconds. Older results
+appear as cached/stale until refreshed. Closing and reopening the manager keeps
+the last successful result. Preloading times out after 15 seconds; failures are
+retried when the manager opens. SSE and periodic refreshes only run while the
+manager is mounted. No localStorage or persistent offline cache is used.
+
 Integrated into the existing Create React App / React Context desktop and 98.css. No dependencies added and no deployment or infrastructure changes made. There is no router, chart library, existing API client, or monitor app in this checkout.
 
 ## Source

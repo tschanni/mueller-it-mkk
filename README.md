@@ -1,5 +1,29 @@
 # Getting Started with Create React App
 
+## Automatic deployment
+
+Set **Settings → Pages → Custom domain** to `www.mueller-it-mkk.de` and save.
+The DNS CNAME for `www` must point to `tschanni.github.io` without a repository
+path. Enable **Enforce HTTPS** when available. Actions deployments require this
+repository setting; `public/CNAME` preserves the domain for branch-based builds
+but does not configure the domain when using Actions.
+
+The build uses relative asset URLs (`homepage: "."`) to support both the custom
+domain root and `/mueller-it-mkk/`. After saving the domain, push these changes
+or run the deployment workflow manually, then hard-refresh the browser.
+
+The workflow in `.github/workflows/deploy-pages.yml` tests, builds, and deploys
+the website to GitHub Pages on every push to `main`. It can also be started
+manually from the Actions tab using **Run workflow**.
+
+Before the first run, set **Settings → Pages → Build and deployment → Source**
+to **GitHub Actions** in the GitHub repository. Commit and push the workflow to
+`main` to start the first deployment. Failed tests or builds prevent publication.
+
+The workflow uses the built-in `GITHUB_TOKEN`; no personal access token is needed.
+The existing `npm run deploy` command is retained for the former branch-based
+deployment setup, but is not used by this workflow.
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts

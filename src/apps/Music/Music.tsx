@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { publicAsset } from '../../utils/publicAsset';
 import './music.css';
 
 interface Track {
@@ -25,7 +26,7 @@ export const Music: React.FC = () => {
   const [current, setCurrent] = useState<Track | null>(null);
 
   useEffect(() => {
-    fetch('/music.json')
+    fetch(publicAsset('music.json'))
       .then((r) => r.json())
       .then(setTracks)
       .catch((e) => console.error('Failed to load music.json', e));

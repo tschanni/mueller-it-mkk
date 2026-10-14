@@ -18,7 +18,7 @@ export const Desktop: React.FC = () => {
   const openGameservers = () => {
     const existing = windows.find(w => w.app === 'gameservers');
     if (existing) { restoreWindow(existing.id); return; }
-    openWindow({ id: 'gameserver-manager', title: 'Gameserver-Manager – Müller IT MKK', app: 'gameservers', x: Math.min(160, Math.max(0, window.innerWidth - 820)), y: 70, width: 800, height: 580 });
+    openWindow({ id: 'gameserver-manager', title: 'Gameserver-Manager – Müller IT MKK', app: 'gameservers', x: Math.min(160, Math.max(0, window.innerWidth - 820)), y: 110, width: 800, height: 580 });
   };
 
   return (

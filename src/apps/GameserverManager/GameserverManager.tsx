@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { EventPage, GameServer, Metrics, Players, request, statusText } from './api';
 import { useServers } from './useServers';
 import './gameserver.css';
+import { publicAsset } from '../../utils/publicAsset';
 const tabs = ['Übersicht', 'Server', 'Leistung', 'Ereignisse'];
 const value = (v: unknown, unit = '') => v === null || v === undefined || v === '' ? 'Nicht verfügbar' : String(v) + unit;
 const date = (v: string | null) => v && Number.isFinite(Date.parse(v)) ? new Date(v).toLocaleString('de-DE') : 'Nicht verfügbar';
@@ -91,7 +92,7 @@ export function GameserverManager() {
    <div className="gsm-cards" aria-label="Gameserver">
      {servers.map(s => <article key={s.id} className={'gsm-card' + (server?.id === s.id ? ' gsm-card-selected' : '')}
        onClick={() => setSelected(s.id)} onDoubleClick={() => { setSelected(s.id); setTab(1); }}>
-       <div className="gsm-card-icon"><img src={s.gameType === 'MINECRAFT' ? '/retro-minecraft.svg' : s.gameType === 'TERRARIA' ? '/retro-terraria.svg' : '/retro-server.svg'} alt="" />
+       <div className="gsm-card-icon"><img src={publicAsset(s.gameType === 'MINECRAFT' ? 'retro-minecraft.svg' : s.gameType === 'TERRARIA' ? 'retro-terraria.svg' : 'retro-server.svg')} alt="" />
          <span>{s.gameType === 'MINECRAFT' ? 'Minecraft' : s.gameType === 'TERRARIA' ? 'Terraria' : s.gameType}</span>
        </div>
        <div className="gsm-card-content">

@@ -14,6 +14,16 @@ class MockStream {
     addEventListener(type: string, callback: () => void) { this.listeners[type] = callback; }
 }
 let fetchMock: jest.Mock;
+test('preloads at page entry and reuses the result when the manager opens', async () => {
+    render(<App />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await act(async () => { await Promise.resolve(); });
+    expect(MockStream.instances).toHaveLength(0);
+    fireEvent.doubleClick(screen.getByRole('button', { name: 'Gameserver-Manager' }));
+    await screen.findByRole('button', { name: 'Minecraft Test' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(MockStream.instances).toHaveLength(1);
+});
 beforeEach(() => {
     MockStream.instances = [];
     Object.defineProperty(window, 'EventSource', { writable: true, value: MockStream });

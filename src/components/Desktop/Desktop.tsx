@@ -29,7 +29,7 @@ export const Desktop: React.FC = () => {
         <AppIcon title="Taschenrechner" icon="/retro-calc.svg" onOpen={openCalculator} />
         <AppIcon title="Pong" icon="/game1.png" onOpen={openPong} />
         <AppIcon title="Musik" icon="/music.png" onOpen={openMusic} />
-        <AppIcon title="Gameserver-Manager" icon="/retro-server.svg" onOpen={openGameservers} selectOnClick />
+        <AppIcon title="Gameserver-Manager" icon="/retro-server.svg" onOpen={openGameservers} />
       </div>
       <WindowArea />
       <Taskbar />

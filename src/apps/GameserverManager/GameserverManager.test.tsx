@@ -19,7 +19,7 @@ test('preloads at page entry and reuses the result when the manager opens', asyn
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     await act(async () => { await Promise.resolve(); });
     expect(MockStream.instances).toHaveLength(0);
-    fireEvent.doubleClick(screen.getByRole('button', { name: 'Gameserver-Manager' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Gameserver-Manager' }));
     await screen.findByRole('button', { name: 'Minecraft Test' });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(MockStream.instances).toHaveLength(1);
@@ -71,14 +71,12 @@ test('resynchronizes on SSE updates and closes subscriptions and aborts on unmou
     expect(stream.close).toHaveBeenCalledTimes(1);
     expect(signal.aborted).toBe(true);
 });
-test('desktop selects on click, opens one instance, restores, maximizes, and closes', async () => {
+test('desktop opens on a single click, keeps one instance, restores, maximizes, and closes', async () => {
     render(<App />);
     const icon = screen.getByRole('button', { name: 'Gameserver-Manager' });
     fireEvent.click(icon);
-    expect(screen.queryByText('Öffentliche Serverüberwachung')).not.toBeInTheDocument();
-    fireEvent.doubleClick(icon);
     await screen.findByRole('button', { name: 'Minecraft Test' });
-    fireEvent.doubleClick(icon);
+    fireEvent.click(icon);
     expect(screen.getAllByText('Öffentliche Serverüberwachung')).toHaveLength(1);
     const panel = screen.getByRole('dialog', { name: 'Gameserver-Manager – Müller IT MKK' });
     const minimize = within(panel).getByRole('button', { name: 'Minimize' });
@@ -109,4 +107,22 @@ test('falls back to polling after SSE interruption and cancels polling on close'
         await act(async () => { jest.advanceTimersByTime(60000); });
         expect(fetchMock).toHaveBeenCalledTimes(2);
     } finally { unmount(); jest.useRealTimers(); }
+});
+
+test('keeps server details usable when the optional player list fails and allows retry', async () => {
+    const successfulFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((url: string, options: unknown) => url.includes('/players')
+        ? Promise.reject(new TypeError('Failed to fetch')) : successfulFetch(url, options));
+    render(<GameserverManager />);
+    await screen.findByRole('button', { name: 'Minecraft Test' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Server' }));
+    await screen.findByText('Spielerliste konnte nicht geladen werden.');
+    expect(screen.getByText('minecraft.example.com')).toBeInTheDocument();
+    expect(screen.getByText('Paper')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument();
+    fetchMock.mockImplementation(successfulFetch);
+    fireEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
+    await screen.findByText('Spielernamen nicht \u00f6ffentlich verf\u00fcgbar.');
+    expect(screen.queryByText('Spielerliste konnte nicht geladen werden.')).not.toBeInTheDocument();
 });

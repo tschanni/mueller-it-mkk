@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
-export type AppComponentType = 'company' | 'gallery' | 'calculator' | 'pong' | 'music' | 'impressum' | 'gameservers';
+export type AppComponentType = 'company' | 'gallery' | 'calculator' | 'pong' | 'music' | 'impressum' | 'gameservers' | 'auth-login' | 'auth-register' | 'auth-reset' | 'auth-new-password' | 'auth-account' | 'auth-message';
 
 export interface Win98Window {
   id: string;

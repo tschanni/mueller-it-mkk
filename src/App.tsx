@@ -3,14 +3,17 @@ import './App.css';
 import { WindowManagerProvider } from './state/WindowManagerContext';
 import { Desktop } from './components/Desktop/Desktop';
 import { ServerCacheProvider } from './apps/GameserverManager/ServerCache';
+import { AuthProvider } from './auth/AuthContext';
 
 function App() {
   return (
-    <ServerCacheProvider>
-      <WindowManagerProvider>
-        <Desktop />
-      </WindowManagerProvider>
-    </ServerCacheProvider>
+    <AuthProvider>
+      <ServerCacheProvider>
+        <WindowManagerProvider>
+          <Desktop />
+        </WindowManagerProvider>
+      </ServerCacheProvider>
+    </AuthProvider>
   );
 }
 

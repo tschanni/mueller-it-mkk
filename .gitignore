@@ -24,5 +24,6 @@ yarn-error.log*
 
 # Local, read-only backend contract checkout
 /.backend-contract/
+/.backend-oidc-work/
 
 .GAMESERVER-MANAGER.md

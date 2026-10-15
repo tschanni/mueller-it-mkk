@@ -8,6 +8,8 @@ import { Pong } from '../../apps/Pong/Pong';
 import { Music } from '../../apps/Music/Music';
 import { GameserverManager } from '../../apps/GameserverManager/GameserverManager';
 import { Impressum } from '../../apps/Impressum/Impressum';
+import { AuthMessage, LoginDialog, NewPasswordDialog, PasswordResetDialog, RegistrationDialog } from '../../auth/AuthWindows';
+import { AccountDialog } from '../../auth/AccountDialog';
 
 export const WinWindow: React.FC<{ win: Win98Window }> = ({ win }) => {
   const { closeWindow, minimizeWindow, focusWindow, moveWindow, maximizeWindow, focusedId } = useWindowManager();
@@ -56,7 +58,7 @@ export const WinWindow: React.FC<{ win: Win98Window }> = ({ win }) => {
       role="dialog"
       aria-label={win.title}
       ref={ref}
-      className={classNames('window', { hidden: win.isMinimized, 'gameserver-window': win.app === 'gameservers', maximized: win.isMaximized })}
+      className={classNames('window', { hidden: win.isMinimized, 'gameserver-window': win.app === 'gameservers', 'auth-window': win.app.startsWith('auth-'), maximized: win.isMaximized })}
       style={style}
       onMouseDown={() => focusWindow(win.id)}
     >
@@ -69,6 +71,12 @@ export const WinWindow: React.FC<{ win: Win98Window }> = ({ win }) => {
         </div>
       </div>
       <div className="window-body">
+        {win.app === 'auth-login' && <LoginDialog windowId={win.id} />}
+        {win.app === 'auth-register' && <RegistrationDialog windowId={win.id} />}
+        {win.app === 'auth-reset' && <PasswordResetDialog windowId={win.id} />}
+        {win.app === 'auth-new-password' && <NewPasswordDialog windowId={win.id} />}
+        {win.app === 'auth-account' && <AccountDialog windowId={win.id} />}
+        {win.app === 'auth-message' && <AuthMessage windowId={win.id} />}
         {win.app === 'gameservers' && <GameserverManager />}
         {win.app === 'company' && <CompanyPage />}
         {win.app === 'gallery' && <Gallery />}

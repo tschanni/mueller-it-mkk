@@ -16,18 +16,18 @@ class MockStream {
 let fetchMock: jest.Mock;
 test('preloads at page entry and reuses the result when the manager opens', async () => {
     render(<App />);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     await act(async () => { await Promise.resolve(); });
     expect(MockStream.instances).toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'Gameserver-Manager' }));
     await screen.findByRole('button', { name: 'Minecraft Test' });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(MockStream.instances).toHaveLength(1);
 });
 beforeEach(() => {
     MockStream.instances = [];
     Object.defineProperty(window, 'EventSource', { writable: true, value: MockStream });
-    fetchMock = jest.fn(async (url: string) => ({ ok: true, json: async () => url.includes('/metrics') ? { snapshots: [], metrics: [], limit: 100, message: '' } : url.includes('/players') ? { players: [], available: false, message: '', lastHeartbeatAt: null } : url.includes('/events') ? { items: [], total: 0, page: 1, limit: 25 } : [sample, { ...sample, id: 'terraria', slug: 'terraria', name: 'Terraria Test', gameType: 'TERRARIA', status: 'UNKNOWN', capability: 'TCP_ONLY', onlinePlayers: null, maxPlayers: null, gameVersion: null, latencyMs: null }] }));
+    fetchMock = jest.fn(async (url: string) => ({ ok: true, json: async () => url.includes('/auth/get-session') ? null : url.includes('/metrics') ? { snapshots: [], metrics: [], limit: 100, message: '' } : url.includes('/players') ? { players: [], available: false, message: '', lastHeartbeatAt: null } : url.includes('/events') ? { items: [], total: 0, page: 1, limit: 25 } : [sample, { ...sample, id: 'terraria', slug: 'terraria', name: 'Terraria Test', gameType: 'TERRARIA', status: 'UNKNOWN', capability: 'TCP_ONLY', onlinePlayers: null, maxPlayers: null, gameVersion: null, latencyMs: null }] }));
     Object.defineProperty(window, 'fetch', { writable: true, value: fetchMock });
 });
 test('validates responses and preserves unknown states and missing metrics', () => {

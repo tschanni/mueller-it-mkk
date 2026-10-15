@@ -1,6 +1,7 @@
 import React from 'react';
 import './taskbar.css';
 import { useWindowManager } from '../../state/WindowManagerContext';
+import { StartMenu } from './StartMenu';
 
 export const Taskbar: React.FC = () => {
   const { windows, focusedId, restoreWindow, minimizeWindow, openWindow } = useWindowManager();
@@ -9,10 +10,7 @@ export const Taskbar: React.FC = () => {
 
   return (
     <div className="taskbar">
-      <button className="start-button" aria-label="Start">
-        <span className="start-flag" />
-        Start
-      </button>
+      <StartMenu />
       <div className="task-buttons">
         {windows.map(w => (
           <button

@@ -4,8 +4,13 @@ import { WindowArea } from '../Window/WindowArea';
 import './desktop.css';
 import { AppIcon } from '../AppIcon/AppIcon';
 import { useWindowManager } from '../../state/WindowManagerContext';
+import { AuthWindows } from '../../auth/AuthWindows';
+import { useAuth } from '../../auth/AuthContext';
+import { useAuthWindow } from '../../auth/useAuthWindow';
 
 export const Desktop: React.FC = () => {
+  const { session } = useAuth();
+  const openAuthWindow = useAuthWindow();
   const { openWindow, windows, restoreWindow } = useWindowManager();
 
   const openCompany = () =>
@@ -24,6 +29,7 @@ export const Desktop: React.FC = () => {
   return (
     <div className="desktop">
       <div className="icons">
+        <AppIcon title={session ? 'Mein Konto' : 'Anmelden'} icon="/retro-login.svg" onOpen={() => openAuthWindow(session ? 'auth-account' : 'auth-login')} />
         <AppIcon title="Müller IT MKK" icon="/retro-browser.png" onOpen={openCompany} />
         <AppIcon title="Bilder" icon="/retro-folder.png" onOpen={openGallery} />
         <AppIcon title="Taschenrechner" icon="/retro-calc.svg" onOpen={openCalculator} />
@@ -32,6 +38,7 @@ export const Desktop: React.FC = () => {
         <AppIcon title="Gameserver-Manager" icon="/retro-server.svg" onOpen={openGameservers} />
       </div>
       <WindowArea />
+      <AuthWindows />
       <Taskbar />
     </div>
   );

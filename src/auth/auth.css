@@ -1,0 +1,27 @@
+.auth-dialog { font-family: "Pixelated MS Sans Serif", Tahoma, sans-serif; font-size: 11px; }
+.auth-intro { display: flex; align-items: flex-start; padding: 4px 0 4px; }
+.auth-intro img { object-fit: contain; flex-shrink: 0; }
+.auth-intro > div { min-width: 0; }
+.auth-dialog p { margin: 0 0 10px; line-height: 1.5; overflow-wrap: anywhere; margin-top: 20px; }
+.auth-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 10px 12px; margin-bottom: 16px; }
+.auth-fields input { width: 100%; min-width: 0; height: 23px; box-sizing: border-box; }
+.auth-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.auth-alternative { border-top: 1px solid #808080; box-shadow: 0 -1px #fff; padding-top: 12px; margin-top: 16px; }
+.auth-alternative button { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+.auth-alternative button img { flex-shrink: 0; }
+.auth-alternative button:disabled img { filter: grayscale(1); opacity: .5; }
+.auth-links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.auth-links button { background: none; box-shadow: none; border: 0; padding: 2px 0; min-width: 0; color: #000080; text-decoration: underline; cursor: pointer; }
+.auth-links button:disabled { color: #808080; cursor: default; }
+.auth-connection, .auth-errors { border: 1px solid #808080; box-shadow: inset 1px 1px #fff; padding: 8px; margin-bottom: 12px; }
+.auth-errors { background: #fff; color: #800000; }
+.auth-errors p:last-child { margin: 0; }
+.auth-message-icon { display: grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; background: #000080; color: #fff; border: 2px solid #fff; font: bold 24px serif; }
+.auth-account-fields { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; }
+.auth-account-fields dd { margin: 0; overflow-wrap: anywhere; }
+.auth-profile-preview { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.auth-account-list { list-style: none; padding: 0; margin: 8px 0; }
+.auth-account-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 6px 0; }
+.auth-dialog > fieldset, .auth-dialog > form { margin-bottom: 12px; }
+.window.auth-window { min-height: 0; min-width: min(320px, calc(100vw - 8px)); max-width: calc(100vw - 8px); max-height: calc(100dvh - 50px); overflow: auto; box-sizing: border-box; }
+@media (max-width: 420px) { .auth-fields { grid-template-columns: 1fr; gap: 4px; } .auth-fields input { margin-bottom: 8px; } }

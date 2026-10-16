@@ -2,7 +2,16 @@
 .auth-intro { display: flex; align-items: flex-start; padding: 4px 0 4px; }
 .auth-intro img { object-fit: contain; flex-shrink: 0; }
 .auth-intro > div { min-width: 0; }
-.auth-dialog p { margin: 0 0 10px; line-height: 1.5; overflow-wrap: anywhere; margin-top: 20px; }
+.auth-dialog p { margin: 0 0 10px; line-height: 1.5; overflow-wrap: anywhere; }
+.auth-intro { gap: 12px; margin-bottom: 12px; }
+.auth-feedback { display: flex; align-items: flex-start; gap: 12px; border: 1px solid #808080; box-shadow: inset 1px 1px #fff; padding: 10px; margin-bottom: 12px; }
+.auth-feedback > div { min-width: 0; }
+.auth-feedback p { margin: 8px 0 0; }
+.auth-feedback-success .auth-message-icon { background: #008000; }
+.auth-feedback-warning .auth-message-icon { background: #ffff00; color: #000; }
+.auth-feedback-error .auth-message-icon { background: #800000; }
+.auth-feedback-warning { background: #ffffe1; }
+.auth-message-icon { border-radius: 50%; }
 .auth-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 10px 12px; margin-bottom: 16px; }
 .auth-fields input { width: 100%; min-width: 0; height: 23px; box-sizing: border-box; }
 .auth-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -14,7 +23,7 @@
 .auth-links button { background: none; box-shadow: none; border: 0; padding: 2px 0; min-width: 0; color: #000080; text-decoration: underline; cursor: pointer; }
 .auth-links button:disabled { color: #808080; cursor: default; }
 .auth-connection, .auth-errors { border: 1px solid #808080; box-shadow: inset 1px 1px #fff; padding: 8px; margin-bottom: 12px; }
-.auth-errors { background: #fff; color: #800000; }
+.auth-errors { display: block; background: #fff; color: #800000; }
 .auth-errors p:last-child { margin: 0; }
 .auth-message-icon { display: grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; background: #000080; color: #fff; border: 2px solid #fff; font: bold 24px serif; }
 .auth-account-fields { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; }

@@ -7,11 +7,11 @@ import { AuthProvider, useAuth } from './AuthContext';
 import { AuthAdapter, AuthError, AuthSession, LinkedAccount, checkedRedirect, checkedSession } from './client';
 
 jest.mock('../apps/Gallery/Gallery', () => ({ Gallery: () => null }));
-const user = { id: 'user-1', username: 'Testbenutzer', email: 'test@example.com', role: 'USER' as const };
+const user = { id: 'user-1', username: 'Testbenutzer', name: 'Testbenutzer', email: 'test@example.com', role: 'USER' as const };
 const signedIn = (): AuthSession => ({ user, expiresAt: Date.now() + 3600000 });
 function adapterForTest() {
   return {
-    configured: true, redirectOrigins: ['https://discord.com'],
+    configured: true, registrationAvailable: true, redirectOrigins: ['https://discord.com'],
     getSession: jest.fn(async (_signal: AbortSignal): Promise<AuthSession | null> => null),
     signIn: jest.fn(async () => undefined),
     signUp: jest.fn(async () => 'verify-email' as const),
@@ -37,7 +37,6 @@ function credentials(dialog: HTMLElement) {
   fireEvent.change(within(dialog).getByLabelText('Passwort:'), { target: { value: 'correct test password' } });
 }
 function registration(dialog: HTMLElement) {
-  fireEvent.change(within(dialog).getByLabelText('Name:'), { target: { value: 'Alex Example' } });
   fireEvent.change(within(dialog).getByLabelText('Benutzername:'), { target: { value: '  Testbenutzer  ' } });
   credentials(dialog);
   fireEvent.change(within(dialog).getByLabelText('Passwort bestätigen:'), { target: { value: 'correct test password' } });
@@ -106,7 +105,7 @@ test('validates registration before sending and handles email verification witho
   fireEvent.change(within(dialog).getByLabelText('Passwort bestätigen:'), { target: { value: 'correct test password' } });
   fireEvent.click(within(dialog).getByRole('button', { name: 'Registrieren' }));
   await screen.findByText(/Bitte prüfen Sie Ihren Posteingang/);
-  expect(adapter.signUp).toHaveBeenCalledWith({ name: 'Alex Example', username: 'Testbenutzer', email: 'test@example.com', password: 'correct test password' }, expect.any(AbortSignal));
+  expect(adapter.signUp).toHaveBeenCalledWith({ name: 'Testbenutzer', email: 'test@example.com', password: 'correct test password' }, expect.any(AbortSignal));
   expect(screen.getByTestId('auth-state')).toHaveTextContent('anonymous');
   expect(dialog).not.toBeInTheDocument();
 });
@@ -192,6 +191,8 @@ test('logout clears the user only after the server confirms success', async () =
   fireEvent.click(within(menu()).getByRole('menuitem', { name: 'Abmelden' }));
   await waitFor(() => expect(screen.getByTestId('auth-state')).toHaveTextContent('anonymous'));
   expect(adapter.signOut).toHaveBeenCalledTimes(1);
+  await screen.findByText('Sie wurden erfolgreich abgemeldet.');
+  fireEvent.click(screen.getByRole('button', { name: 'OK' }));
   expect(within(menu()).getByRole('menuitem', { name: 'Anmelden' })).toBeInTheDocument();
 });
 
@@ -346,16 +347,19 @@ test('verification mail can be resent without revealing whether an account exist
   expect(adapter.sendVerificationEmail).toHaveBeenCalledWith('test@example.com', expect.any(AbortSignal));
 });
 
-test('Discord-only users can choose a username and refresh their verified profile', async () => {
-  const adapter = { ...adapterForTest(), updateUsername: jest.fn(async () => undefined) };
-  adapter.getSession.mockResolvedValueOnce({ ...signedIn(), user: { ...user, username: 'Discord Name', needsUsername: true } }).mockResolvedValueOnce(signedIn());
+test('user.name is displayed with stable user ID and no username editor', async () => {
+  const adapter = adapterForTest();
+  adapter.getSession.mockResolvedValue({ ...signedIn(), user: { ...user, name: 'Discord Name' } });
   mount(adapter); await ready();
-  const dialog = await screen.findByRole('dialog', { name: 'Mein Konto' });
-  fireEvent.change(within(dialog).getByLabelText('Benutzername:'), { target: { value: 'test_user' } });
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Benutzernamen speichern' }));
-  await screen.findByText('Ihr Benutzername wurde gespeichert.');
-  expect(adapter.updateUsername).toHaveBeenCalledWith('test_user', expect.any(AbortSignal));
-  await waitFor(() => expect(within(dialog).getByLabelText('Benutzername:')).toHaveValue('Testbenutzer'));
+  const dialog = await openAccount();
+  expect(within(dialog).getAllByText('Discord Name').length).toBeGreaterThan(0);
+  expect(within(dialog).getByText('user-1')).toBeInTheDocument();
+  expect(within(dialog).queryByRole('form', { name: /Benutzername/ })).not.toBeInTheDocument();
+  expect(within(dialog).getByRole('button', { name: 'Kontaktdaten speichern' })).toBeDisabled();
+  for (const label of ['Vorname:', 'Nachname:', 'Stra\u00dfe:', 'Hausnummer:', 'Postleitzahl:', 'Ort:']) {
+    expect(within(dialog).getByLabelText(label)).toBeDisabled();
+    expect(within(dialog).getByLabelText(label)).not.toBeRequired();
+  }
 });
 
 function linkedAdapter() {
@@ -377,7 +381,7 @@ test('account window displays verified email, loads linked accounts, and starts 
   const adapter = linkedAdapter(); adapter.listAccounts.mockResolvedValue([credentialAccount]);
   const { redirect } = mount(adapter); await ready();
   const dialog = await openAccount();
-  expect(within(dialog).getByText('Alex Example')).toBeInTheDocument();
+  expect(within(dialog).getAllByText('Alex Example')[0]).toBeInTheDocument();
   expect(within(dialog).getByText('Bestätigt')).toBeInTheDocument();
   expect(within(dialog).getByText('E-Mail und Passwort')).toBeInTheDocument();
   expect(adapter.linkDiscord).not.toHaveBeenCalled();
@@ -440,8 +444,8 @@ test('server freshness requirement opens reauthentication without claiming logou
   expect(adapter.signIn).toHaveBeenCalledTimes(1);
 });
 
-test('existing users can change usernames and failed account loading is retryable', async () => {
-  const adapter = { ...linkedAdapter(), updateUsername: jest.fn(async () => undefined) };
+test('failed account loading is retryable without enabling username editing', async () => {
+  const adapter = linkedAdapter();
   adapter.listAccounts.mockRejectedValueOnce(new AuthError('network')).mockResolvedValueOnce([credentialAccount]);
   mount(adapter); await ready();
   const dialog = await openAccount();
@@ -449,20 +453,20 @@ test('existing users can change usernames and failed account loading is retryabl
   fireEvent.click(screen.getByRole('button', { name: 'OK' }));
   fireEvent.click(within(dialog).getByRole('button', { name: 'Erneut laden' }));
   await within(dialog).findByText('E-Mail und Passwort');
-  fireEvent.change(within(dialog).getByLabelText('Benutzername:'), { target: { value: 'renamed_user' } });
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Benutzernamen speichern' }));
-  await screen.findByText('Ihr Benutzername wurde gespeichert.');
-  expect(adapter.updateUsername).toHaveBeenCalledWith('renamed_user', expect.any(AbortSignal));
+  expect(within(dialog).queryByLabelText('Benutzername:')).not.toBeInTheDocument();
 });
 
-test('registration requires a name distinct from the username', async () => {
-  const adapter = adapterForTest(); mount(adapter); await ready();
+test('registration stays blocked without the new contract and contains no personal fields', async () => {
+  const adapter = { ...adapterForTest(), registrationAvailable: false };
+  mount(adapter); await ready();
   fireEvent.click(within(menu()).getByRole('menuitem', { name: 'Registrieren' }));
   const dialog = screen.getByRole('dialog', { name: 'Neues Konto erstellen' });
+  expect(within(dialog).getByRole('button', { name: 'Registrieren' })).toBeDisabled();
+  expect(within(dialog).queryByLabelText('Name:')).not.toBeInTheDocument();
+  expect(within(dialog).queryByLabelText('Vorname:')).not.toBeInTheDocument();
   registration(dialog);
-  fireEvent.change(within(dialog).getByLabelText('Name:'), { target: { value: '  ' } });
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Registrieren' }));
-  expect(within(dialog).getByRole('alert')).toHaveTextContent('Bitte geben Sie Ihren Namen ein.');
+  fireEvent.submit(within(dialog).getByRole('form', { name: 'Registrierungsdaten' }));
+  await screen.findAllByText(/Registrierung wird auf das neue Benutzermodell/);
   expect(adapter.signUp).not.toHaveBeenCalled();
 });
 
@@ -506,4 +510,38 @@ test('linking callbacks sanitize error queries and reopen the account window', a
   expect(window.location.pathname).toBe('/');
   expect(window.location.search).toBe('');
   expect(adapter.linkDiscord).not.toHaveBeenCalled();
+});
+
+// These adapters exercise existing session behavior, not an unconfirmed profile API.
+test.each(['network', 'server'] as const)('refresh %s retains the known session and recovers on retry', async code => {
+  const adapter = adapterForTest();
+  adapter.getSession.mockResolvedValueOnce(signedIn()).mockRejectedValueOnce(new AuthError(code)).mockResolvedValueOnce(signedIn());
+  mount(adapter); await ready();
+  fireEvent.focus(window);
+  await screen.findByRole('alert');
+  expect(screen.getByTestId('auth-state')).toHaveTextContent('authenticated:USER');
+  expect(screen.getByRole('alert')).toHaveTextContent(code === 'server' ? 'Serverfehler' : 'nicht erreichbar');
+  fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+  fireEvent.focus(window);
+  await waitFor(() => expect(adapter.getSession).toHaveBeenCalledTimes(3));
+  expect(screen.getByTestId('auth-state')).toHaveTextContent('authenticated:USER');
+});
+
+test('HTTP 401 during refresh clears the session and offers login', async () => {
+  const adapter = adapterForTest();
+  adapter.getSession.mockResolvedValueOnce(signedIn()).mockRejectedValueOnce(new AuthError('unauthorized'));
+  mount(adapter); await ready(); fireEvent.focus(window);
+  await screen.findByText(/HTTP 401/);
+  expect(screen.getByTestId('auth-state')).toHaveTextContent('anonymous');
+  expect(screen.getByRole('dialog', { name: 'Mueller IT MKK Welt Anmeldung' })).toBeInTheDocument();
+});
+
+test('reload restoration failure stays unavailable and a focus retry restores the cookie session', async () => {
+  const adapter = adapterForTest();
+  adapter.getSession.mockRejectedValueOnce(new AuthError('network')).mockResolvedValueOnce(signedIn());
+  mount(adapter); await ready();
+  expect(screen.getByTestId('auth-state')).toHaveTextContent('unavailable');
+  fireEvent.click(await screen.findByRole('button', { name: 'OK' }));
+  fireEvent.focus(window);
+  await waitFor(() => expect(screen.getByTestId('auth-state')).toHaveTextContent('authenticated:USER'));
 });

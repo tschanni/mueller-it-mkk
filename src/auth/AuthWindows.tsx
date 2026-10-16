@@ -11,16 +11,12 @@ export function AuthWindows() {
   const open = useAuthWindow();
   const handled = useRef(0);
   const handledEntry = useRef<string | null>(null);
-  const usernamePrompt = useRef<string | null>(null);
   const handledReauthentication = useRef(0);
   useEffect(() => {
     if (reauthentication && handledReauthentication.current !== reauthentication) {
       handledReauthentication.current = reauthentication; open('auth-login');
     }
     if (entryWindow && entryWindow !== handledEntry.current) { handledEntry.current = entryWindow; open(entryWindow); }
-    if (session?.user.needsUsername && usernamePrompt.current !== session.user.id) {
-      usernamePrompt.current = session.user.id; open('auth-account');
-    }
     if (notice && handled.current !== notice.id) { handled.current = notice.id; open('auth-message'); }
     if (session) {
       for (const win of windows) {
@@ -35,13 +31,13 @@ function Intro({ children }: { children: React.ReactNode }) {
   return <div className="auth-intro"><img src={publicAsset('/mueller-it-mkk-logo.png')} alt="" width="80" height="80" /><div>{children}</div></div>;
 }
 function ConnectionNote() {
-  const { configured, status } = useAuth();
+  const { configured, status, refresh } = useAuth();
   if (!configured) return <p className="auth-connection" role="status">Die Serveranbindung für die Anmeldung wird vorbereitet. Anmelden und Registrieren sind derzeit nicht verfügbar.</p>;
-  if (status === 'unavailable') return <p className="auth-connection" role="status">Der Anmeldedienst ist momentan nicht erreichbar. Bitte versuchen Sie es erneut.</p>;
+  if (status === 'unavailable') return <p className="auth-connection" role="status">Der Anmeldedienst ist momentan nicht erreichbar. Bitte versuchen Sie es erneut. <button type="button" onClick={() => void refresh()}>Erneut prüfen</button></p>;
   return null;
 }
-function FormErrors({ errors }: { errors: string[] }) {
-  return errors.length ? <div className="auth-errors" role="alert">{errors.map(error => <p key={error}>{error}</p>)}</div> : null;
+export function FormErrors({ errors }: { errors: string[] }) {
+  return errors.length ? <div className="auth-errors auth-feedback auth-feedback-error" role="alert">{errors.map(error => <p key={error}>{error}</p>)}</div> : null;
 }
 const validEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const emailError = 'Bitte geben Sie eine gültige E-Mail-Adresse ein.';
@@ -81,9 +77,8 @@ export function LoginDialog({ windowId }: { windowId: string }) {
 }
 
 export function RegistrationDialog({ windowId }: { windowId: string }) {
-  const { register, configured, busy, passwordPolicy } = useAuth();
+  const { register, configured, registrationAvailable, busy, passwordPolicy } = useAuth();
   const { closeWindow } = useWindowManager();
-  const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -92,9 +87,7 @@ export function RegistrationDialog({ windowId }: { windowId: string }) {
   async function submit(event: FormEvent) {
     event.preventDefault();
     const invalid = [
-      ...(!name.trim() ? ['Bitte geben Sie Ihren Namen ein.'] : []),
       ...(!username.trim() ? ['Bitte geben Sie einen Benutzernamen ein.'] : []),
-      ...(username.trim() && !/^[a-zA-Z0-9_.]{3,30}$/.test(username.trim()) ? ['Der Benutzername muss 3 bis 30 Zeichen lang sein und darf nur Buchstaben, Ziffern, Unterstriche und Punkte enthalten.'] : []),
       ...(!validEmail(email.trim()) ? [emailError] : []),
       ...(!password ? ['Bitte geben Sie ein Passwort ein.'] : []),
       ...(passwordPolicy && (password.length < passwordPolicy.minLength || password.length > passwordPolicy.maxLength) ? [`Das Passwort muss zwischen ${passwordPolicy.minLength} und ${passwordPolicy.maxLength} Zeichen lang sein.`] : []),
@@ -104,20 +97,21 @@ export function RegistrationDialog({ windowId }: { windowId: string }) {
     if (invalid.length) return;
     const secret = password;
     setPassword(''); setConfirmation('');
-    if (await register({ name: name.trim(), username: username.trim(), email: email.trim(), password: secret })) closeWindow(windowId);
+    if (await register({ name: username.trim(), email: email.trim(), password: secret })) closeWindow(windowId);
   }
   return <form aria-label="Registrierungsdaten" className="auth-dialog" onSubmit={submit} noValidate aria-busy={busy}>
     <Intro><p>Erstellen Sie ein Benutzerkonto für Müller IT MKK.</p></Intro>
     <ConnectionNote /><FormErrors errors={errors} />
+    {!registrationAvailable && <p className="auth-feedback auth-feedback-warning" role="status">Die Registrierung wird auf das neue Benutzermodell umgestellt und ist derzeit nicht verfügbar.</p>}
+    <p>Benutzernamen dürfen mehrfach vorkommen. Ihre E-Mail-Adresse dient zur Anmeldung.</p>
     <div className="auth-fields">
-      <label htmlFor="register-display-name">Name:</label><input id="register-display-name" autoComplete="name" required value={name} disabled={busy} onChange={e => setName(e.target.value)} />
       <label htmlFor="register-name">Benutzername:</label><input id="register-name" autoComplete="username" autoFocus required value={username} disabled={busy} onChange={e => setUsername(e.target.value)} />
       <label htmlFor="register-email">E-Mail:</label><input id="register-email" type="email" autoComplete="email" required value={email} disabled={busy} onChange={e => setEmail(e.target.value)} />
       <label htmlFor="register-password">Passwort:</label><input id="register-password" type="password" autoComplete="new-password" required value={password} disabled={busy} onChange={e => setPassword(e.target.value)} />
       <label htmlFor="register-confirm">Passwort bestätigen:</label><input id="register-confirm" type="password" autoComplete="new-password" required value={confirmation} disabled={busy} onChange={e => setConfirmation(e.target.value)} />
     </div>
     {passwordPolicy && <p>Verwenden Sie {passwordPolicy.minLength} bis {passwordPolicy.maxLength} Zeichen für Ihr Passwort.</p>}
-    <div className="auth-actions"><button type="submit" disabled={!configured || busy}>{busy ? 'Bitte warten…' : 'Registrieren'}</button><button type="button" onClick={() => closeWindow(windowId)}>Abbrechen</button></div>
+    <div className="auth-actions"><button type="submit" disabled={!configured || !registrationAvailable || busy}>{busy ? 'Bitte warten…' : 'Registrieren'}</button><button type="button" onClick={() => closeWindow(windowId)}>Abbrechen</button></div>
   </form>;
 }
 
@@ -173,5 +167,11 @@ export function NewPasswordDialog({ windowId }: { windowId: string }) {
 export function AuthMessage({ windowId }: { windowId: string }) {
   const { notice, dismissNotice } = useAuth();
   const { closeWindow } = useWindowManager();
-  return <div className="auth-dialog"><div className="auth-intro" role="alert"><span className="auth-message-icon" aria-hidden="true">i</span><div><strong>{notice?.title}</strong><p>{notice?.text}</p></div></div><div className="auth-actions"><button autoFocus onClick={() => { dismissNotice(); closeWindow(windowId); }}>OK</button></div></div>;
+  const kind = notice?.kind || 'info';
+  const labels = { success: 'Erfolg', warning: 'Warnung', error: 'Fehler', info: 'Hinweis' };
+  const icons = { success: '\u2713', warning: '!', error: '\u00d7', info: 'i' };
+  return <div className="auth-dialog"><div className={`auth-feedback auth-feedback-${kind}`} role={kind === 'error' || kind === 'warning' ? 'alert' : 'status'}>
+    <span className="auth-message-icon" aria-hidden="true">{icons[kind]}</span>
+    <div><strong>{labels[kind]}: {notice?.title}</strong><p>{notice?.text}</p></div>
+  </div><div className="auth-actions"><button autoFocus onClick={() => { dismissNotice(); closeWindow(windowId); }}>OK</button></div></div>;
 }

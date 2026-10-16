@@ -35,7 +35,7 @@ export function StartMenu() {
       if (next >= 0) { event.preventDefault(); items[next]?.focus(); }
     }}>
       <div className="start-menu-content">
-        <div className="start-menu-user">{session && <ProfileImage image={session.user.image} name={session.user.username} />}<span>{session ? session.user.username : status === 'loading' ? 'Sitzung wird geprüft…' : 'Nicht angemeldet'}</span></div>
+        <div className="start-menu-user">{session && <ProfileImage image={session.user.image} name={session.user.name || 'Benutzer'} />}<span>{session ? session.user.name || 'Benutzer' : status === 'loading' ? 'Sitzung wird geprüft…' : 'Nicht angemeldet'}</span></div>
         {session ? <>
           <button role="menuitem" onClick={() => { close(); openWindow('auth-account'); }}><img src={publicAsset('/retro-user.svg')} alt="" />Mein Konto</button>
           <button role="menuitem" disabled={busy} onClick={() => { close(); void logout(); }}><img src={publicAsset('/retro-login.svg')} alt="" />Abmelden</button>

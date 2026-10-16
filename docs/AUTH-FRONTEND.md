@@ -1,5 +1,11 @@
 # Windows-98-Anmeldung
 
+> Aktualisierung 16.10.2026: Der folgende Text beschreibt den bisherigen Stand.
+> Für den aktuellen Umbau gelten [CENTRAL-USER-MODEL.md](CENTRAL-USER-MODEL.md)
+> und [BROWSER-ACCEPTANCE.md](BROWSER-ACCEPTANCE.md). Die Registrierung ist bis zum
+> aktualisierten Backend-Vertrag samt Commit-ID gesperrt; die frühere
+> Benutzername-Bearbeitung wurde entfernt.
+
 ## Stand und Grundlage
 
 Die Frontend-Anbindung ist gemäß dem bereitgestellten

@@ -3,15 +3,17 @@ import { AuthAdapter, AuthError, AuthSession, LinkedAccount, LoginInput, Registr
 import { readAuthReturn } from './callbacks';
 
 type Status = 'loading' | 'anonymous' | 'authenticated' | 'unavailable';
-export interface AuthNotice { id: number; title: string; text: string }
+export type NoticeKind = 'success' | 'warning' | 'error' | 'info';
+export interface AuthNotice { id: number; title: string; text: string; kind: NoticeKind }
 interface AuthState {
   session: AuthSession | null;
   status: Status;
   busy: boolean;
   configured: boolean;
+  registrationAvailable: boolean;
   passwordPolicy: AuthAdapter['passwordPolicy'];
   notice: AuthNotice | null;
-  notify: (text: string, title?: string) => void;
+  notify: (text: string, title?: string, kind?: NoticeKind) => void;
   dismissNotice: () => void;
   login: (input: LoginInput) => Promise<boolean>;
   register: (input: RegistrationInput) => Promise<boolean>;
@@ -23,7 +25,6 @@ interface AuthState {
   hasResetToken: boolean;
   completePasswordReset: (password: string) => Promise<boolean>;
   resendVerification: (email: string) => Promise<boolean>;
-  updateUsername: (username: string) => Promise<boolean>;
   updateImage: (image: string) => Promise<boolean>;
   listAccounts: (signal: AbortSignal) => Promise<LinkedAccount[]>;
   linkDiscord: () => Promise<boolean>;
@@ -70,8 +71,8 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
   const operation = useRef<AbortController | null>(null);
   const restoring = useRef<AbortController | null>(null);
   const invalidate = useCallback(() => { revision.current++; }, []);
-  const notify = useCallback((text: string, title = 'Mueller IT MKK Welt Anmeldung') => {
-    setNotice({ id: ++noticeId.current, text, title });
+  const notify = useCallback((text: string, title = 'Anmeldung', kind: NoticeKind = 'info') => {
+    setNotice({ id: ++noticeId.current, text, title, kind });
   }, []);
   const apply = useCallback((value: AuthSession | null) => {
     current.current = value;
@@ -86,20 +87,20 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
     try {
       const result = checkedSession(await abortable(adapter.getSession(abort.signal), abort.signal));
       if (!mounted.current || abort.signal.aborted || version !== revision.current) return;
-      if (current.current && !result) notify(new AuthError('expired').message);
+      if (current.current && !result) notify(new AuthError('expired').message, 'Sitzung beendet', 'warning');
       apply(result);
       if (entry.kind === 'oauth' && !entry.failed && !oauthChecked.current) {
         oauthChecked.current = true;
-        if (!result) { setEntryWindow('auth-login'); notify(new AuthError('oauth').message); }
+        if (!result) { setEntryWindow('auth-login'); notify(new AuthError('oauth').message, 'Discord-Anmeldung', 'error'); }
       }
     } catch (error) {
       if (!mounted.current || version !== revision.current) return;
-      const wasSignedIn = !!current.current;
-      apply(null);
-      setStatus(error instanceof AuthError && error.code === 'expired' ? 'anonymous' : 'unavailable');
-      if (wasSignedIn) notify(safeAuthMessage(error));
+      const rejected = error instanceof AuthError && ['expired', 'unauthorized'].includes(error.code);
+      if (rejected) { apply(null); setEntryWindow('auth-login'); }
+      else setStatus(current.current ? 'authenticated' : 'unavailable');
+      notify(safeAuthMessage(error), 'Sitzungsprüfung', rejected ? 'warning' : 'error');
       if (entry.kind === 'oauth' && !entry.failed && !oauthChecked.current) {
-        oauthChecked.current = true; setEntryWindow('auth-login'); notify(safeAuthMessage(error));
+        oauthChecked.current = true; setEntryWindow('auth-login'); notify(safeAuthMessage(error), 'Anfrage fehlgeschlagen', error instanceof AuthError && ['expired', 'unauthorized', 'verification', 'rate-limited', 'fresh-session', 'contract-pending'].includes(error.code) ? 'warning' : 'error');
       }
     } finally {
       clearTimeout(timer);
@@ -112,18 +113,18 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
     if (!returnHandled.current) {
       returnHandled.current = true;
       if (entry.kind !== 'desktop') window.history.replaceState(null, '', '/');
-      if (entry.kind === 'oauth' && entry.failed) { setEntryWindow('auth-login'); notify(new AuthError('oauth').message); }
+      if (entry.kind === 'oauth' && entry.failed) { setEntryWindow('auth-login'); notify(new AuthError('oauth').message, 'Discord-Anmeldung', 'error'); }
       if (entry.kind === 'verified') {
         setEntryWindow('auth-login');
-        notify(entry.failed ? new AuthError('token').message : 'Ihre E-Mail-Adresse wurde bestätigt. Sie können sich jetzt anmelden.', 'E-Mail-Bestätigung');
+        notify(entry.failed ? new AuthError('token').message : 'Ihre E-Mail-Adresse wurde bestätigt. Sie können sich jetzt anmelden.', 'E-Mail-Bestätigung', entry.failed ? 'error' : 'success');
       }
       if (entry.kind === 'reset') {
         setEntryWindow(entry.hasToken ? 'auth-new-password' : 'auth-login');
-        if (!entry.hasToken) notify(new AuthError('token').message);
+        if (!entry.hasToken) notify(new AuthError('token').message, 'Link abgelaufen', 'warning');
       }
       if (entry.kind === 'account') {
         setEntryWindow('auth-account');
-        if (entry.failed) notify('Das Discord-Konto konnte nicht verknüpft werden. Bitte versuchen Sie es erneut.', 'Mein Konto');
+        if (entry.failed) notify('Das Discord-Konto konnte nicht verknüpft werden. Bitte versuchen Sie es erneut.', 'Mein Konto', 'error');
       }
     }
     void refresh();
@@ -147,17 +148,17 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
       const remaining = session.expiresAt - Date.now();
       if (remaining > 0) { timer = setTimeout(expire, Math.min(remaining, 2147483647)); return; }
       invalidate(); restoring.current?.abort(); restoring.current = null;
-      apply(null); notify(new AuthError('expired').message);
+      apply(null); notify(new AuthError('expired').message, 'Sitzung beendet', 'warning');
     };
     timer = setTimeout(expire, Math.min(Math.max(0, session.expiresAt - Date.now()), 2147483647));
     return () => clearTimeout(timer);
   }, [session, apply, notify, invalidate]);
 
   const handleFailure = useCallback((error: unknown) => {
-    if (error instanceof AuthError && error.code === 'expired') apply(null);
+    if (error instanceof AuthError && ['expired', 'unauthorized'].includes(error.code)) { apply(null); setEntryWindow('auth-login'); }
     if (error instanceof AuthError && error.code === 'fresh-session') setReauthentication(++reauthenticationId.current);
     if (error instanceof AuthError && error.code === 'token') { setResetToken(null); setEntryWindow('auth-login'); }
-    notify(safeAuthMessage(error));
+    notify(safeAuthMessage(error), 'Anfrage fehlgeschlagen', error instanceof AuthError && ['expired', 'unauthorized', 'verification', 'rate-limited', 'fresh-session', 'contract-pending'].includes(error.code) ? 'warning' : 'error');
   }, [apply, notify]);
   const listAccounts = useCallback(async (signal: AbortSignal) => {
     try {
@@ -198,27 +199,28 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
     apply(value);
   };
   return <Context.Provider value={{
-    session, status, busy, configured: adapter.configured, passwordPolicy: adapter.passwordPolicy,
+    session, status, busy, configured: adapter.configured, registrationAvailable: adapter.registrationAvailable === true, passwordPolicy: adapter.passwordPolicy,
     notice, notify, dismissNotice: () => setNotice(null), refresh,
     login: input => run(async signal => {
       await adapter.signIn(input, signal); await acceptSession(signal);
-      if (mounted.current && !signal.aborted) setReauthentication(null);
+      if (mounted.current && !signal.aborted) { setReauthentication(null); notify('Sie sind angemeldet.', 'Anmeldung', 'success'); }
     }),
     register: input => run(async signal => {
+      if (!adapter.registrationAvailable) throw new AuthError('contract-pending');
       const next = await adapter.signUp(input, signal);
       if (!mounted.current || signal.aborted) return;
       if (next === 'session') await acceptSession(signal);
-      else if (next === 'verify-email') notify('Bitte prüfen Sie Ihren Posteingang und bestätigen Sie Ihre E-Mail-Adresse, bevor Sie sich anmelden.', 'Registrierung');
-      else if (next === 'sign-in') notify('Ihr Konto wurde erstellt. Sie können sich jetzt anmelden.', 'Registrierung');
+      else if (next === 'verify-email') notify('Bitte prüfen Sie Ihren Posteingang und bestätigen Sie Ihre E-Mail-Adresse, bevor Sie sich anmelden.', 'Registrierung', 'success');
+      else if (next === 'sign-in') notify('Ihr Konto wurde erstellt. Sie können sich jetzt anmelden.', 'Registrierung', 'success');
       else throw new AuthError('invalid-response');
     }),
     logout: () => run(async signal => {
       await adapter.signOut(signal);
-      if (mounted.current && !signal.aborted) { apply(null); setReauthentication(null); }
+      if (mounted.current && !signal.aborted) { apply(null); setReauthentication(null); notify('Sie wurden erfolgreich abgemeldet.', 'Abmeldung', 'success'); }
     }),
     resetPassword: email => run(async signal => {
       await adapter.requestPasswordReset(email, signal);
-      if (mounted.current && !signal.aborted) notify('Falls für diese E-Mail-Adresse ein Konto besteht, erhalten Sie eine Nachricht mit weiteren Schritten.', 'Passwort zurücksetzen');
+      if (mounted.current && !signal.aborted) notify('Falls für diese E-Mail-Adresse ein Konto besteht, erhalten Sie eine Nachricht mit weiteren Schritten.', 'Passwort zurücksetzen', 'success');
     }),
     entryWindow, hasResetToken: !!resetToken,
     completePasswordReset: password => run(async signal => {
@@ -226,23 +228,18 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
       await adapter.completePasswordReset(resetToken, password, signal);
       if (mounted.current && !signal.aborted) {
         setResetToken(null); apply(null); setEntryWindow('auth-login');
-        notify('Ihr Passwort wurde geändert. Bitte melden Sie sich mit dem neuen Passwort an.', 'Passwort zurücksetzen');
+        notify('Ihr Passwort wurde geändert. Bitte melden Sie sich mit dem neuen Passwort an.', 'Passwort zurücksetzen', 'success');
       }
     }),
     resendVerification: email => run(async signal => {
       if (!adapter.sendVerificationEmail) throw new AuthError('not-configured');
       await adapter.sendVerificationEmail(email, signal);
-      if (mounted.current && !signal.aborted) notify('Bitte prüfen Sie Ihren Posteingang. Falls eine Bestätigung erforderlich ist, erhalten Sie eine Nachricht.', 'E-Mail-Bestätigung');
-    }),
-    updateUsername: username => run(async signal => {
-      if (!adapter.updateUsername) throw new AuthError('not-configured');
-      await adapter.updateUsername(username, signal); await acceptSession(signal);
-      if (mounted.current && !signal.aborted) notify('Ihr Benutzername wurde gespeichert.', 'Mein Konto');
+      if (mounted.current && !signal.aborted) notify('Bitte prüfen Sie Ihren Posteingang. Falls eine Bestätigung erforderlich ist, erhalten Sie eine Nachricht.', 'E-Mail-Bestätigung', 'success');
     }),
     updateImage: image => run(async signal => {
       if (!adapter.updateImage) throw new AuthError('not-configured');
       await adapter.updateImage(image, signal); await acceptSession(signal);
-      if (mounted.current && !signal.aborted) notify('Ihr Profilbild wurde gespeichert.', 'Mein Konto');
+      if (mounted.current && !signal.aborted) notify('Ihr Profilbild wurde gespeichert.', 'Mein Konto', 'success');
     }),
     listAccounts, reauthentication,
     linkDiscord: () => run(async signal => {

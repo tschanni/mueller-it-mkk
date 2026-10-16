@@ -3,12 +3,10 @@ import { profileImageURL } from './profileImageURL';
 export type UserRole = 'USER' | 'ADMIN';
 export interface AuthUser {
   id: string;
-  username: string;
   email: string;
   role: UserRole;
-  needsUsername?: boolean;
   emailVerified?: boolean;
-  name?: string;
+  name: string;
   image?: string | null;
 }
 export interface AuthSession {
@@ -17,15 +15,18 @@ export interface AuthSession {
   expiresAt: number;
 }
 export interface LoginInput { email: string; password: string }
-export interface RegistrationInput extends LoginInput { name: string; username: string }
+export interface RegistrationInput extends LoginInput { name: string }
 export interface LinkedAccount { id: string; providerId: string; accountId: string }
 export type RegistrationResult = 'session' | 'verify-email' | 'sign-in';
 export type AuthErrorCode = 'not-configured' | 'credentials' | 'expired' | 'verification' |
-  'rate-limited' | 'forbidden' | 'oauth' | 'network' | 'invalid-response' |
+  'server' | 'unauthorized' | 'contract-pending' | 'rate-limited' | 'forbidden' | 'oauth' | 'network' | 'invalid-response' |
   'username' | 'username-taken' | 'password' | 'token' | 'fresh-session' | 'provider' | 'request' | 'last-account' | 'image';
 
 const messages: Record<AuthErrorCode, string> = {
   'not-configured': 'Die Anmeldung ist noch nicht mit dem Server verbunden. Bitte später erneut versuchen.',
+  server: 'Der Anmeldedienst meldet einen Serverfehler. Bitte versuchen Sie es später erneut.',
+  unauthorized: 'Der Server hat die Anmeldung nicht bestätigt (HTTP 401). Bitte melden Sie sich erneut an.',
+  'contract-pending': 'Die Registrierung wird auf das neue Benutzermodell umgestellt und ist derzeit nicht verfügbar.',
   credentials: 'E-Mail-Adresse oder Passwort ist nicht korrekt.',
   expired: 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.',
   verification: 'Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse.',
@@ -55,6 +56,8 @@ export function safeAuthMessage(error: unknown): string {
 }
 export interface AuthAdapter {
   readonly configured: boolean;
+  /** Enabled only once the central-user contract and backend commit are confirmed. */
+  readonly registrationAvailable?: boolean;
   /** Static allowlist from the confirmed backend/provider configuration. */
   readonly redirectOrigins: readonly string[];
   readonly passwordPolicy?: { minLength: number; maxLength: number };
@@ -66,7 +69,6 @@ export interface AuthAdapter {
   startDiscord(returnURL: string, signal: AbortSignal): Promise<string>;
   completePasswordReset?(token: string, newPassword: string, signal: AbortSignal): Promise<void>;
   sendVerificationEmail?(email: string, signal: AbortSignal): Promise<void>;
-  updateUsername?(username: string, signal: AbortSignal): Promise<void>;
   updateImage?(image: string, signal: AbortSignal): Promise<void>;
   listAccounts?(signal: AbortSignal): Promise<LinkedAccount[]>;
   linkDiscord?(signal: AbortSignal): Promise<string>;
@@ -88,16 +90,15 @@ export const unconfiguredAuthClient: AuthAdapter = {
 export function checkedSession(value: AuthSession | null): AuthSession | null {
   if (value === null) return null;
   if (!value || !value.user || typeof value.user.id !== 'string' || !value.user.id ||
-      typeof value.user.username !== 'string' || !value.user.username || typeof value.user.email !== 'string' ||
+      typeof value.user.name !== 'string' || !value.user.name.trim() || typeof value.user.email !== 'string' ||
       !Number.isFinite(value.expiresAt)) throw new AuthError('invalid-response');
   if (value.expiresAt <= Date.now()) return null;
   // Unknown or future roles never grant administrative UI privileges.
   return { expiresAt: value.expiresAt, user: {
-    id: value.user.id, username: value.user.username, email: value.user.email,
+    id: value.user.id, email: value.user.email,
     role: value.user.role === 'ADMIN' ? 'ADMIN' : 'USER',
-    needsUsername: value.user.needsUsername === true,
     emailVerified: value.user.emailVerified === true,
-    ...(typeof value.user.name === 'string' ? { name: value.user.name } : {}),
+    name: value.user.name,
     ...(typeof value.user.image === 'string' ? { image: profileImageURL(value.user.image) } : {}),
   } };
 }
@@ -157,8 +158,9 @@ export function createAuthClient(options: { baseURL: string; frontendOrigin: str
         cooldowns.set(path, until);
         throw new AuthError('rate-limited', until);
       }
+      if (response.status >= 500) throw new AuthError('server');
       const code = object(value) && typeof value.code === 'string' && Object.prototype.hasOwnProperty.call(codes, value.code) ? codes[value.code] : undefined;
-      throw new AuthError(code ?? (response.status === 401 && path !== 'sign-in/email' ? 'expired' : response.status === 403 ? 'forbidden' : response.status >= 500 ? 'network' : 'request'));
+      throw new AuthError(code ?? (response.status === 401 ? (path === 'sign-in/email' ? 'credentials' : 'unauthorized') : response.status === 403 ? 'forbidden' : 'request'));
     }
     return value;
   }
@@ -174,14 +176,12 @@ export function createAuthClient(options: { baseURL: string; frontendOrigin: str
       if (!object(value) || !object(value.user) || !object(value.session)) throw new AuthError('invalid-response');
       const { user, session } = value;
       if (typeof user.id !== 'string' || !user.id || typeof user.email !== 'string' ||
-          session.userId !== user.id || typeof session.expiresAt !== 'string' ||
-          (user.username != null && typeof user.username !== 'string')) throw new AuthError('invalid-response');
-      const username = typeof user.username === 'string' && user.username ? user.username :
-        typeof user.name === 'string' && user.name ? user.name : 'Benutzer';
+          session.userId !== user.id || typeof session.expiresAt !== 'string') throw new AuthError('invalid-response');
+      if (typeof user.name !== 'string' || !user.name.trim()) throw new AuthError('invalid-response');
       return checkedSession({ user: {
-        id: user.id, email: user.email, username, role: user.role === 'ADMIN' ? 'ADMIN' : 'USER',
-        needsUsername: !user.username, emailVerified: user.emailVerified === true,
-        ...(typeof user.name === 'string' ? { name: user.name } : {}),
+        id: user.id, email: user.email, role: user.role === 'ADMIN' ? 'ADMIN' : 'USER',
+        emailVerified: user.emailVerified === true,
+        name: user.name,
         ...(typeof user.image === 'string' ? { image: user.image } : {}),
       }, expiresAt: Date.parse(session.expiresAt) });
     },
@@ -189,13 +189,10 @@ export function createAuthClient(options: { baseURL: string; frontendOrigin: str
       const value = await request('sign-in/email', signal, { email: input.email, password: input.password, rememberMe: true });
       if (!object(value) || value.redirect !== false || !object(value.user)) throw new AuthError('invalid-response');
     },
-    async signUp(input, signal) {
-      const value = await request('sign-up/email', signal, {
-        name: input.name.trim(), username: input.username.trim().toLowerCase(), email: input.email, password: input.password,
-        callbackURL: callback('/auth/verified'),
-      });
-      if (!object(value) || value.token !== null || !object(value.user)) throw new AuthError('invalid-response');
-      return 'verify-email';
+    registrationAvailable: false,
+    async signUp() {
+      // The old contract requires a unique username. Do not send that model.
+      throw new AuthError('contract-pending');
     },
     async signOut(signal) {
       const value = await request('sign-out', signal, {});
@@ -204,7 +201,6 @@ export function createAuthClient(options: { baseURL: string; frontendOrigin: str
     requestPasswordReset: (email, signal) => status('request-password-reset', signal, { email, redirectTo: callback('/reset-password') }),
     completePasswordReset: (token, newPassword, signal) => status('reset-password', signal, { token, newPassword }),
     sendVerificationEmail: (email, signal) => status('send-verification-email', signal, { email, callbackURL: callback('/auth/verified') }),
-    updateUsername: (username, signal) => status('update-user', signal, { username: username.trim().toLowerCase() }),
     async updateImage(image, signal) {
       const url = profileImageURL(image);
       if (!url) throw new AuthError('image');

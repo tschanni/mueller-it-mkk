@@ -20,7 +20,7 @@ function lastRequest(fetcher: jest.Mock) { return fetcher.mock.calls[fetcher.moc
 test('session requests use cookies, no cache, no redirects and strip all sensitive session fields', async () => {
   const { client, fetcher, signal } = setup(); fetcher.mockResolvedValue(response(rawSession()));
   const session = await client.getSession(signal);
-  expect(session?.user).toEqual({ id: 'u1', username: 'alex_1', email: 'alex@example.com', role: 'ADMIN', needsUsername: false, emailVerified: true, name: 'Alex' });
+  expect(session?.user).toEqual({ id: 'u1', email: 'alex@example.com', role: 'ADMIN', emailVerified: true, name: 'Alex' });
   expect(JSON.stringify(session)).not.toMatch(/SECRET_SESSION_TOKEN|PRIVATE_IP|s1|token/);
   expect(fetcher).toHaveBeenCalledWith('https://api.mueller-it-mkk.de/games/api/v1/auth/get-session', expect.objectContaining({ method: 'GET', credentials: 'include', cache: 'no-store', redirect: 'error', signal }));
 });
@@ -32,10 +32,10 @@ test('absent sessions are successful null responses and unknown roles are never 
   expect((await client.getSession(signal))?.user.role).toBe('USER');
 });
 
-test('Discord-only users without a username are identified for profile completion', async () => {
+test('Discord display names come from user.name without a profile-completion requirement', async () => {
   const { client, fetcher, signal } = setup();
   fetcher.mockResolvedValue(response({ ...rawSession(), user: { ...rawSession().user, username: null } }));
-  expect((await client.getSession(signal))?.user).toMatchObject({ username: 'Alex', needsUsername: true });
+  expect((await client.getSession(signal))?.user).toMatchObject({ name: 'Alex' });
 });
 
 test.each([
@@ -47,15 +47,11 @@ test.each([
   await expect(client.getSession(signal)).rejects.toMatchObject({ code: 'invalid-response' });
 });
 
-test('registration sends both name and normalized username, never a role, and always requires verification', async () => {
+test('registration is blocked until a confirmed central-user backend contract exists', async () => {
   const { client, fetcher, signal } = setup();
-  fetcher.mockResolvedValue(response({ token: null, user: { id: 'synthetic-or-real' } }));
-  expect(await client.signUp({ name: 'Alex Example', username: 'Alex_1', email: 'alex@example.com', password: 'long-password-123' }, signal)).toBe('verify-email');
-  const [url, init] = lastRequest(fetcher);
-  expect(url).toMatch(/\/sign-up\/email$/);
-  expect(JSON.parse(init.body as string)).toEqual({ name: 'Alex Example', username: 'alex_1', email: 'alex@example.com', password: 'long-password-123', callbackURL: 'https://www.mueller-it-mkk.de/auth/verified' });
-  expect(init.headers).toMatchObject({ 'Content-Type': 'application/json' });
-  expect(init.headers).not.toHaveProperty('X-CSRF-Token');
+  expect(client.registrationAvailable).toBe(false);
+  await expect(client.signUp({ name: 'Alex', email: 'alex@example.com', password: 'long-password-123' }, signal)).rejects.toMatchObject({ code: 'contract-pending' });
+  expect(fetcher).not.toHaveBeenCalled();
 });
 
 test('email login never returns or stores the token and sign-out sends an empty JSON body', async () => {
@@ -89,13 +85,6 @@ test('Discord uses the fixed frontend callbacks and checks the returned provider
   expect(JSON.parse(lastRequest(fetcher)[1].body as string)).toEqual({ provider: 'discord', callbackURL: 'https://www.mueller-it-mkk.de/auth/callback', errorCallbackURL: 'https://www.mueller-it-mkk.de/auth/error' });
   fetcher.mockResolvedValue(response({ url: 'https://discord.com.attacker.example', redirect: true }));
   await expect(client.startDiscord('', signal)).rejects.toMatchObject({ code: 'oauth' });
-});
-
-test('username updates cannot set roles or email addresses', async () => {
-  const { client, fetcher, signal } = setup(); fetcher.mockResolvedValue(response({ status: true }));
-  await client.updateUsername!('Alex_2', signal);
-  expect(lastRequest(fetcher)[0]).toMatch(/\/update-user$/);
-  expect(JSON.parse(lastRequest(fetcher)[1].body as string)).toEqual({ username: 'alex_2' });
 });
 
 test('profile images are saved with cookie credentials through the existing update-user endpoint', async () => {
@@ -151,7 +140,7 @@ test.each([
   [401, 'SESSION_EXPIRED', 'expired'], [401, 'SESSION_NOT_FRESH', 'fresh-session'],
   [404, 'PROVIDER_NOT_FOUND', 'provider'], [400, 'PASSWORD_TOO_SHORT', 'password'],
   [400, 'INVALID_USERNAME', 'username'], [403, 'INVALID_ORIGIN', 'forbidden'],
-  [422, 'FAILED_TO_CREATE_USER', 'request'], [500, 'AUTH_FAILED', 'network'],
+  [422, 'FAILED_TO_CREATE_USER', 'request'], [500, 'AUTH_FAILED', 'server'],
   [400, 'constructor', 'request'],
 ])('maps HTTP %s / %s to safe error %s', async (http, code, expected) => {
   const { client, fetcher, signal } = setup(); fetcher.mockResolvedValue(response({ code, message: 'SECRET_INTERNAL_ERROR' }, http as number));
@@ -191,4 +180,14 @@ test('callback parsing handles only documented paths and does not expose raw err
   expect(readAuthReturn(new URL('https://www.mueller-it-mkk.de/reset-password?error=INVALID_TOKEN'))).toEqual({ kind: 'reset', token: null });
   expect(readAuthReturn(new URL('https://www.mueller-it-mkk.de/reset-password?token=a&token=b'))).toEqual({ kind: 'reset', token: null });
   expect(readAuthReturn(new URL('https://www.mueller-it-mkk.de/?error=unrelated'))).toEqual({ kind: 'desktop' });
+});
+
+test('transport, server failure and HTTP 401 remain distinct', async () => {
+  const { client, fetcher, signal } = setup();
+  fetcher.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+  await expect(client.getSession(signal)).rejects.toMatchObject({ code: 'network' });
+  fetcher.mockResolvedValueOnce(response({ code: 'SESSION_EXPIRED' }, 503));
+  await expect(client.getSession(signal)).rejects.toMatchObject({ code: 'server' });
+  fetcher.mockResolvedValueOnce(response({}, 401));
+  await expect(client.getSession(signal)).rejects.toMatchObject({ code: 'unauthorized' });
 });

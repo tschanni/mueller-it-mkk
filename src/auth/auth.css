@@ -14,6 +14,10 @@
 .auth-message-icon { border-radius: 50%; }
 .auth-fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 10px 12px; margin-bottom: 16px; }
 .auth-fields input { width: 100%; min-width: 0; height: 23px; box-sizing: border-box; }
+.auth-contact-input { min-width: 0; }
+.auth-field-error { display: block; margin-top: 4px; color: #800000; line-height: 1.5; }
+.auth-fields input[aria-invalid="true"] { outline: 1px solid #800000; }
+.auth-feedback-success { background: #e1ffe1; }
 .auth-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .auth-alternative { border-top: 1px solid #808080; box-shadow: 0 -1px #fff; padding-top: 12px; margin-top: 16px; }
 .auth-alternative button { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }

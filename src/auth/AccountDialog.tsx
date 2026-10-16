@@ -3,18 +3,16 @@ import { useWindowManager } from '../state/WindowManagerContext';
 import { useAuth } from './AuthContext';
 import { AuthUser, LinkedAccount } from './client';
 import { useAuthWindow } from './useAuthWindow';
-import { ProfileImage, profileImageURL } from './ProfileImage';
+import { ContactProfileForm } from './ContactProfileForm';
+import { ProfileImage } from './ProfileImage';
 
 function AccountDetails({ user }: { user: AuthUser }) {
-  const { busy, updateImage, listAccounts, linkDiscord, unlinkAccount, resendVerification } = useAuth();
-  const [image, setImage] = useState(user.image || '');
-  const [imageError, setImageError] = useState('');
+  const { busy, listAccounts, linkDiscord, unlinkAccount, resendVerification } = useAuth();
   const [accounts, setAccounts] = useState<LinkedAccount[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [revision, setRevision] = useState(0);
   const [confirmRemoval, setConfirmRemoval] = useState<string | null>(null);
-  useEffect(() => { setImage(user.image || ''); }, [user.image]);
   useEffect(() => {
     const abort = new AbortController();
     const timer = setTimeout(() => abort.abort(), 10000);
@@ -34,33 +32,13 @@ function AccountDetails({ user }: { user: AuthUser }) {
       <dt>Benutzer-ID</dt><dd>{user.id}</dd>
       <dt>E-Mail</dt><dd>{user.email}</dd>
       <dt>E-Mail-Bestätigung</dt><dd>{user.emailVerified ? 'Bestätigt' : 'Nicht bestätigt'}</dd>
-      <dt>Rolle</dt><dd>{user.role === 'ADMIN' ? 'Administrator' : 'Benutzer'}</dd>
+      <dt>Rolle</dt><dd>{user.role === 'ADMIN' ? 'Administrator' : user.role === 'MAINTAINER' ? 'Maintainer' : 'Benutzer'}</dd>
     </dl>
       {!user.emailVerified && <button disabled={busy} onClick={() => void resendVerification(user.email)}>Bestätigungsmail erneut senden</button>}
     </fieldset>
-    <fieldset><legend>Profilbild</legend>
-      <div className="auth-profile-preview"><ProfileImage image={user.image} name={user.name || 'Benutzer'} size={64} /><p>Verwenden Sie die HTTPS-Adresse eines öffentlich erreichbaren Bildes.</p></div>
-      <form aria-label="Profilbild ändern" noValidate onSubmit={event => {
-        event.preventDefault();
-        const url = profileImageURL(image);
-        if (!url) { setImageError('Bitte geben Sie eine gültige HTTPS-Bildadresse ohne Zugangsdaten ein.'); return; }
-        setImageError(''); void updateImage(url);
-      }}>
-        {imageError && <p role="alert">{imageError}</p>}
-        <div className="auth-fields"><label htmlFor="account-image">Bildadresse:</label><input id="account-image" type="url" autoComplete="off" placeholder="https://…" value={image} disabled={busy} onChange={event => setImage(event.target.value)} /></div>
-        <div className="auth-actions"><button disabled={busy}>Profilbild speichern</button></div>
-      </form>
-    </fieldset>
-    <fieldset><legend>Kontaktdaten (optional)</legend>
-      <p id="contact-unavailable" className="auth-feedback auth-feedback-warning" role="status">Das Kontaktformular wird vorbereitet. Speichern ist derzeit nicht verfügbar.</p>
-      <p>Alle Kontaktdaten können leer bleiben. Ihr Benutzername ist vorerst nicht änderbar.</p>
-      <div className="auth-fields" aria-describedby="contact-unavailable">
-        {['Vorname', 'Nachname', 'Straße', 'Hausnummer', 'Postleitzahl', 'Ort'].map((label, index) => <React.Fragment key={label}>
-          <label htmlFor={`contact-${index}`}>{label}:</label><input id={`contact-${index}`} disabled value="" readOnly />
-        </React.Fragment>)}
-      </div>
-      <div className="auth-actions"><button disabled>Kontaktdaten speichern</button></div>
-    </fieldset>
+    {user.image && <div className="auth-profile-preview"><ProfileImage image={user.image} name={user.name} size={64} /></div>}
+    <p>Ihr Benutzername ist vorerst nicht änderbar.</p>
+    {user.emailVerified ? <ContactProfileForm key={user.id} /> : <p role="status">Bitte bestätigen Sie Ihre E-Mail-Adresse, um Ihre optionalen Kontaktdaten zu bearbeiten.</p>}
     <fieldset><legend>Verknüpfte Anmeldekonten</legend>
       {loading && <p role="status">Anmeldekonten werden geladen…</p>}
       {loadError && <p>Die Anmeldekonten konnten nicht geladen werden. <button disabled={busy || loading} onClick={() => setRevision(value => value + 1)}>Erneut laden</button></p>}

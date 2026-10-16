@@ -1,83 +1,99 @@
 # Browser-Abnahme: zentrales Benutzermodell
 
-Stand 16.10.2026. Diese Liste wurde erstellt, noch nicht manuell im Browser
-abgenommen. Keine produktive Veröffentlichung erfolgt.
+Stand 16.10.2026. Backend-SHA:
+`03030cce4409eec9a347998feeea71062affd5fb`.
+Die Liste ist vorbereitet, noch nicht manuell im Browser abgenommen.
+Keine produktive Veroeffentlichung erfolgt.
 
-## Jetzt prüfbar
+## Registrierung und Login
 
-- [ ] Lokal mit `npm start` öffnen; Desktop und öffentliche Gameserver bleiben
-  auch bei nicht erreichbarem Auth-Backend bedienbar.
-- [ ] Registrierung enthält Benutzername, E-Mail, Passwort und Passwortbestätigung;
-  keine separaten Namen oder Kontaktdaten. Hinweis auf mehrfach erlaubte Namen.
-- [ ] Registrierung ist bis zum bestätigten Backend-Vertrag deaktiviert;
-  auch Enter erzeugt keinen Registrierungsrequest.
-- [ ] Login bietet ausschließlich E-Mail/Passwort und Discord an.
-- [ ] Nach Anmeldung steht überall der Better-Auth-Wert `user.name`, auch wenn
-  ein alter `username` abweicht. Keine Aufforderung zur Namensvervollständigung.
-- [ ] Konto zeigt Benutzername und Benutzer-ID; kein Namenseditor vorhanden.
-- [ ] Optionaler Kontaktbereich zeigt Vorname, Nachname, Straße, Hausnummer,
-  Postleitzahl und Ort leer/deaktiviert; Speichern deaktiviert, Hinweis sichtbar.
-- [ ] Erfolg, Warnung und Fehler erscheinen im klassischen 98.css-Fenster mit
-  unterscheidbarem Symbol und Text. Keine Browser-Alerts, kein internes Fehlerdetail.
-- [ ] Login-/Logout-Erfolge werden bestätigt. Fehlgeschlagener Logout erhält
-  den Benutzerzustand; kein behaupteter Logout bei Transportfehlern.
-- [ ] E-Mail-Bestätigung, erneute Verifikationsmail, Passwort-Reset und Discord-
-  Abbruch besitzen verständliche Hinweise; ungültiger Link bietet erneuten Login.
-- [ ] Tabulator, Enter, OK, Fenster schließen/minimieren/wiederherstellen funktionieren;
-  bei 320px Breite und 200% Zoom sind Felder und Aktionen erreichbar.
+- [ ] Registrierung enthaelt nur Benutzername, E-Mail, Passwort und lokale
+  Passwortbestaetigung. Kein separater Personenname oder Kontaktformular.
+- [ ] Namen mit 1/64 Zeichen, Unicode und gemischter Schreibweise akzeptieren;
+  leere Namen, Leer-/Steuerzeichen, spitze Klammern und 65 Zeichen ablehnen.
+- [ ] Zwei verschiedene E-Mail-Adressen mit gleichem Namen registrieren;
+  getrennte IDs, unveraenderte Schreibweise, kein Eindeutigkeitsfehler.
+- [ ] Verifikationsmail oeffnen; danach Login erforderlich. Abgelaufene Links
+  und erneute Mailanforderung pruefen. Registrierung erzeugt keine lokale Session.
+- [ ] SMTP-Ausfall: kein falscher Registrierungserfolg, Hinweis auf bereits
+  moeglicherweise angelegtes Konto und erneute Verifikationsmail.
+- [ ] Login ausschliesslich mit E-Mail/Passwort oder Discord. Kein Username-Login.
+- [ ] Discord-Anlage verwendet Username statt Anzeigename. Abbruch, ungueltiger
+  State und unbestaetigte Provider-E-Mail geben passende Hinweise.
+- [ ] Im Startmenue/Konto user.name anzeigen; Benutzer-ID sichtbar. Weder Name
+  noch Profilbild editierbar. Explizites Discord-Linking bleibt nutzbar.
 
-## Session und Infrastruktur mit Test-Backend
+## Eigenes Kontaktprofil
 
-- [ ] Chrome/Edge und Firefox, zusätzlich Safari/WebKit prüfen; Browser/Version,
-  Frontend-Commit, Backend-Commit, Test-Origin und Ergebnis protokollieren.
-- [ ] Cookie-Session nach Reload, neuem Tab und Discord-Callback wiederhergestellt;
-  kein flüchtiges Anzeigen angemeldeter Rechte vor erfolgreicher Prüfung.
-- [ ] DevTools Offline einschalten, Fenster fokussieren: getrennte Netzfehlermeldung,
-  bekannte Session bis zu ihrem Ablauf erhalten. Online + Fokus erneut: Wiederherstellung.
-- [ ] Test-Proxy liefert 503, auch mit HTML-Body: Serverfehlermeldung und Session erhalten.
-- [ ] Session-Prüfung liefert 401: Hinweis auf fehlende Anmeldung, Benutzerzustand
-  entfernt, Login angeboten. `SESSION_EXPIRED`, 200 `null` nach Anmeldung und lokale
-  Ablaufzeit beenden die Session mit Ablaufhinweis.
-- [ ] Langsame/nie antwortende Session-Prüfung endet nach 10s, Schreibaktion nach 15s;
-  Wiederholung möglich, keine doppelte Submission und keine verspätete Wiederanmeldung
-  nach Logout.
-- [ ] Produktionstest nur nach Freigabe: HTTPS, API-Cookie host-only/HttpOnly/Secure/
-  SameSite=Lax, `credentials: include`, keine Tokens im Local-/SessionStorage.
-- [ ] CORS mit konkreter Frontend-Origin, Allow-Credentials und korrektem OPTIONS;
-  keine Wildcard, erlaubte Trusted Origins/Callbacks. Cookies werden bei Reload
-  mitgesendet. Kein Cache für Auth-Antworten. Retry-After-Header lesbar.
-- [ ] HTTP 403, 429 und unbekannte Fehler geben sichere, passende Hinweise;
-  429 respektiert die Wartezeit. CORS-Fehler erscheinen als Transportfehler:
-  Browser geben dem Frontend keinen zuverlässigen eigenen CORS-Fehlercode.
+- [ ] Vor Login keine Kontakte/Felder/Profilrequests, nach Logout sofort entfernt.
+  Nicht verifizierte Konten erhalten einen Verifikationshinweis.
+- [ ] GET /games/api/v1/me/profile liefert null: sechs leere, optionale Felder.
+  Vollstaendig leeres Formular speichern: sechs null-Werte; Erfolgsanzeige erst
+  nach 201-Antwort. Reload bestaetigt den Zustand.
+- [ ] Vorname, Nachname, Strasse, Hausnummer, PLZ und Ort teilweise und vollstaendig
+  speichern; nach Reload identisch. PLZ 01234 und internationale PLZ erhalten.
+- [ ] Bereits gespeicherte Werte leeren und speichern: null loescht sie.
+  Zusaetzliche bestehende countryCode/phone/contactEmail bleiben unberuehrt.
+- [ ] Laengen und Zeichen gemaess DTO testen. Feldfehler sind am Feld lesbar,
+  aria-invalid/aria-describedby gesetzt, Eingaben bleiben erhalten.
+- [ ] Manipulierter Request mit ungueltigen Daten ergibt 400, allgemeiner
+  Validierungshinweis ohne interne Details; kein behaupteter Erfolg.
+- [ ] Fehlgeschlagenes Laden sperrt Bearbeiten/Speichern; erneut laden funktioniert.
+  Fehlgeschlagenes Speichern durch Netzwerk, 403, 429 oder 503 erhaelt Entwurf
+  und bekannte Session; Wiederholung nach Wartezeit funktioniert.
+- [ ] Haengende GET-/POST-Anfragen enden nach 10/15 Sekunden. Kein Doppelspeichern.
+  Bei verlorener Antwort gespeicherten Serverzustand separat nachpruefen.
+- [ ] HTTP 401 und Sessionende entfernen Kontakte und bieten Login.
+- [ ] Benutzer A kann B weder lesen noch aendern, auch bei manipulierten Requests.
+  Im Browser niemals Admin-Profilpfade oder userId im Save-Body verwenden.
+- [ ] Kontowechsel mit gleichem Namen: Entwurf von A entfernt, nur B sichtbar.
+  Verzoegerte Lese-/Schreibantworten und 401 von A beeinflussen B nicht.
 
-## Wartet auf Vertrag und Backend-Commit
+## Session und Infrastruktur
 
-Repository `tschanni/Gameserver_Dashboard`, Branch `main`, Vertragsdatei
-`docs/AUTH_API_CONTRACT.md`. Erst nach Übergabe der aktualisierten Datei **und
-Commit-ID** die tatsächlichen Requests implementieren und folgende Punkte prüfen:
+- [ ] Chrome/Edge, Firefox und Safari/WebKit; Browser-Version, Frontend-Commit,
+  Backend-Commit, Origin und Ergebnis protokollieren.
+- [ ] Reload, neuer Tab und Discord-Callback stellen Session per Cookie wieder her.
+  Keine angemeldeten Rechte vor erfolgreicher Sessionpruefung anzeigen.
+- [ ] Offline + Fokus: Netzfehlermeldung, gueltige Session erhalten. Online +
+  erneuter Fokus stellt Serverpruefung wieder her. Kein automatischer Logout.
+- [ ] 503 (auch HTML-Body) ist Serverfehler; 401 ist fehlende Anmeldung;
+  SESSION_EXPIRED, 200 null nach Login und Ablaufzeit beenden die lokale Session.
+- [ ] Logout erst nach Bestaetigung; bei Netzfehlern Benutzerzustand behalten.
+  Verzoegerte Sessionantwort nach Logout meldet nicht erneut an.
+- [ ] Backend-Image entspricht dem geprueften Commit, Migration gemaess Plan
+  separat freigegeben/getestet; keine alte Username-API im Mischbetrieb.
+- [ ] Proxy erlaubt GET/POST/OPTIONS fuer /games/api/v1/me/profile; keine
+  pauschale API-Freigabe. Bestehende Auth-/REST-/SSE-Regeln bleiben funktionsfaehig.
+- [ ] HTTPS fuer Frontend/API, konkrete CORS-Origin, Allow-Credentials, OPTIONS
+  mit Content-Type; Trusted Origins und Discord-Callbacks stimmen exakt.
+- [ ] API-Cookie host-only/HttpOnly/Secure/SameSite=Lax; credentials include,
+  no-store, unveraendertes Set-Cookie auch bei Sessionerneuerung ueber Nest.
+  Auth/Profile nicht cachen; Retry-After-Header cross-origin lesbar.
+- [ ] Keine Tokens, Cookies oder private Kontakte in Local-/SessionStorage,
+  Logs oder Fehlerdetails. Keine vollstaendigen Mail-/OAuth-URLs protokollieren.
+- [ ] CORS-Verweigerung erscheint als Transportfehler: Browser liefern dem
+  Frontend keinen verlaesslichen separaten CORS-Fehlercode.
 
-- [ ] Zwei verschiedene E-Mails mit gleichem Benutzernamen erfolgreich registrieren;
-  verschiedene stabile IDs; `user.name` korrekt und keine erzwungene Kleinschreibung.
-- [ ] Registrierung enthält ausschließlich die vertraglich bestätigten Felder;
-  E-Mail-Verifikation inklusive abgelaufener und erneut angeforderter Links.
-- [ ] Kontakte vollständig leer, teilweise ausgefüllt und vollständig ausgefüllt
-  speichern; nach Reload identisch. Vorhandene Werte wieder komplett löschen.
-- [ ] Feldvalidierung gemäß bestätigtem Vertrag: Fehler direkt am betroffenen Feld,
-  Eingaben erhalten, verständliche Meldung, keine falsche Erfolgsbestätigung.
-- [ ] Erfolgreicher Kontakt-Save erscheint erst nach bestätigter Serverantwort.
-  Doppelklick, Netzwerkabbruch, 401 und 5xx während Speichern korrekt behandeln.
-- [ ] Benutzer A kann keine Kontakte von B lesen/ändern, auch mit manipulierten
-  Requests; anonyme und abgelaufene Sessions abweisen. Serverseitige Tests erforderlich.
-- [ ] Kontowechsel entfernt vorherige Kontakte/Entwürfe; verspätete Antworten für A
-  überschreiben niemals das Profil von B. Name bleibt unveränderbar.
+## Oberflaeche und Regression
 
-## Automatisierte Prüfung
+- [ ] 98.css-Fensterstil fuer Erfolg/Warnung/Fehler; Symbole und Texte lesbar;
+  keine Browser-Alerts. Speichern zeigt eindeutigen Erfolg oder Fehler.
+- [ ] Tastatur: Tab, Enter, OK, Fenstersteuerung; 320px Breite und 200% Zoom.
+- [ ] Desktop, Taschenrechner und oeffentlicher Gameserver-Manager bleiben auch
+  bei Auth-Ausfall nutzbar. Oeffentliche Requests bleiben credentials omit.
 
-`npx.cmd tsc --noEmit`, `npm.cmd test -- --watchAll=false --runInBand` und
-`npm.cmd run build`. Unit-/Komponententests ersetzen keine Browser-Abnahme von
-Cookies, CORS, OAuth, Mailzustellung und serverseitigem Profileigentum.
+## Automatisierte Pruefung
 
-Lokale Ergebnisse am 16.10.2026: TypeScript erfolgreich, 4 Testsuites mit
-90 erfolgreichen Tests, Produktionsbuild inklusive 5 statischer Auth-Einstiege
-erfolgreich. Die Toolchain meldet veraltete Browserslist-Daten und eine
-Node-punycode-Deprecation; keine fehlgeschlagenen Prüfungen.
+TypeScript: `npx.cmd tsc --noEmit`.
+
+Tests: `node node_modules/react-scripts/bin/react-scripts.js test --watchAll=false --runInBand`.
+
+Build: `npm.cmd run build` einschliesslich statischer Callback-Einstiege.
+
+Am 16.10.2026: 6 Testsuiten, 138 erfolgreiche Tests. Testdaten und HTTP-/Adapter-
+Mocks; keine produktiven Registrierungen oder Profile geaendert. Browser-Cookies,
+CORS, SMTP und echtes Discord-OAuth sind durch diese Tests nicht abgenommen.
+TypeScript-Check und Produktionsbuild mit `CI=true` erfolgreich, einschliesslich
+der 5 statischen Auth-Einstiege. Bestehende Toolchain-Hinweise: veraltete
+Browserslist-Daten und Node-punycode-Deprecation; keine TypeScript-/ESLint-Fehler.

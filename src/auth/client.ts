@@ -1,6 +1,7 @@
 /** Cookie-only Better Auth adapter for docs/AUTH_API_CONTRACT.md (1.7.10). */
+import { ContactInput, ContactProfile, contactFields, validUsername, usernameHint } from './contactProfile';
 import { profileImageURL } from './profileImageURL';
-export type UserRole = 'USER' | 'ADMIN';
+export type UserRole = 'USER' | 'MAINTAINER' | 'ADMIN';
 export interface AuthUser {
   id: string;
   email: string;
@@ -20,7 +21,7 @@ export interface LinkedAccount { id: string; providerId: string; accountId: stri
 export type RegistrationResult = 'session' | 'verify-email' | 'sign-in';
 export type AuthErrorCode = 'not-configured' | 'credentials' | 'expired' | 'verification' |
   'server' | 'unauthorized' | 'contract-pending' | 'rate-limited' | 'forbidden' | 'oauth' | 'network' | 'invalid-response' |
-  'username' | 'username-taken' | 'password' | 'token' | 'fresh-session' | 'provider' | 'request' | 'last-account' | 'image';
+  'username' | 'profile-validation' | 'email-delivery' | 'password' | 'token' | 'fresh-session' | 'provider' | 'request' | 'last-account';
 
 const messages: Record<AuthErrorCode, string> = {
   'not-configured': 'Die Anmeldung ist noch nicht mit dem Server verbunden. Bitte später erneut versuchen.',
@@ -35,15 +36,15 @@ const messages: Record<AuthErrorCode, string> = {
   oauth: 'Die Discord-Anmeldung wurde abgebrochen oder ist fehlgeschlagen. Bitte versuchen Sie es erneut.',
   network: 'Der Anmeldedienst ist nicht erreichbar. Bitte versuchen Sie es später erneut.',
   'invalid-response': 'Die Antwort des Anmeldedienstes konnte nicht überprüft werden.',
-  username: 'Der Benutzername muss 3 bis 30 Zeichen lang sein und darf nur Buchstaben, Ziffern, Unterstriche und Punkte enthalten.',
-  'username-taken': 'Dieser Benutzername ist bereits vergeben. Bitte wählen Sie einen anderen.',
+  username: usernameHint,
+  'profile-validation': 'Die Kontaktdaten wurden nicht gespeichert. Bitte pr\u00fcfen Sie die Eingaben und versuchen Sie es erneut.',
+  'email-delivery': 'Die E-Mail konnte derzeit nicht versendet werden. Ihr Konto kann bereits angelegt sein. Bitte fordern Sie sp\u00e4ter eine neue Best\u00e4tigungsmail an.',
   password: 'Das Passwort muss zwischen 12 und 128 Zeichen lang sein.',
   token: 'Der Link ist ungültig oder abgelaufen. Bitte fordern Sie eine neue Nachricht an.',
   'fresh-session': 'Bitte melden Sie sich erneut an, um diese Aktion auszuführen.',
   provider: 'Die Discord-Anmeldung ist auf dem Server derzeit nicht eingerichtet.',
   request: 'Die Anfrage konnte nicht ausgeführt werden. Bitte versuchen Sie es erneut.',
   'last-account': 'Das letzte Anmeldekonto kann nicht entfernt werden. Richten Sie zuerst eine weitere Anmeldemöglichkeit ein.',
-  image: 'Bitte geben Sie eine gültige HTTPS-Bildadresse ohne Zugangsdaten ein.',
 };
 export class AuthError extends Error {
   constructor(public readonly code: AuthErrorCode, public readonly retryAt?: number) { super(messages[code]); }
@@ -69,7 +70,8 @@ export interface AuthAdapter {
   startDiscord(returnURL: string, signal: AbortSignal): Promise<string>;
   completePasswordReset?(token: string, newPassword: string, signal: AbortSignal): Promise<void>;
   sendVerificationEmail?(email: string, signal: AbortSignal): Promise<void>;
-  updateImage?(image: string, signal: AbortSignal): Promise<void>;
+  getProfile?(signal: AbortSignal): Promise<ContactProfile | null>;
+  saveProfile?(input: ContactInput, signal: AbortSignal): Promise<ContactProfile>;
   listAccounts?(signal: AbortSignal): Promise<LinkedAccount[]>;
   linkDiscord?(signal: AbortSignal): Promise<string>;
   unlinkAccount?(accountId: string, signal: AbortSignal): Promise<void>;
@@ -96,7 +98,7 @@ export function checkedSession(value: AuthSession | null): AuthSession | null {
   // Unknown or future roles never grant administrative UI privileges.
   return { expiresAt: value.expiresAt, user: {
     id: value.user.id, email: value.user.email,
-    role: value.user.role === 'ADMIN' ? 'ADMIN' : 'USER',
+    role: value.user.role === 'ADMIN' || value.user.role === 'MAINTAINER' ? value.user.role : 'USER',
     emailVerified: value.user.emailVerified === true,
     name: value.user.name,
     ...(typeof value.user.image === 'string' ? { image: profileImageURL(value.user.image) } : {}),
@@ -118,10 +120,20 @@ const codes: Record<string, AuthErrorCode> = {
   EMAIL_NOT_VERIFIED: 'verification', INVALID_ORIGIN: 'forbidden', MISSING_OR_NULL_ORIGIN: 'forbidden',
   INVALID_CALLBACK_URL: 'forbidden', INVALID_REDIRECT_URL: 'forbidden', FIELD_NOT_ALLOWED: 'forbidden',
   USERNAME_REQUIRED: 'username', INVALID_USERNAME: 'username', USERNAME_TOO_SHORT: 'username', USERNAME_TOO_LONG: 'username',
-  USERNAME_IS_ALREADY_TAKEN: 'username-taken', PASSWORD_TOO_SHORT: 'password', PASSWORD_TOO_LONG: 'password',
+  PASSWORD_TOO_SHORT: 'password', PASSWORD_TOO_LONG: 'password',
   INVALID_TOKEN: 'token', TOKEN_EXPIRED: 'token', PROVIDER_NOT_FOUND: 'provider',
-  FAILED_TO_UNLINK_LAST_ACCOUNT: 'last-account',
+  FAILED_TO_UNLINK_LAST_ACCOUNT: 'last-account', EMAIL_DELIVERY_FAILED: 'email-delivery',
 };
+function checkedProfile(value: unknown): ContactProfile {
+  if (!object(value) || typeof value.userId !== 'string' || !value.userId ||
+      typeof value.updatedAt !== 'string' || !Number.isFinite(Date.parse(value.updatedAt))) throw new AuthError('invalid-response');
+  const profile = { userId: value.userId, updatedAt: value.updatedAt } as ContactProfile;
+  for (const { key } of contactFields) {
+    if (value[key] !== null && typeof value[key] !== 'string') throw new AuthError('invalid-response');
+    profile[key] = value[key] as string | null;
+  }
+  return profile;
+}
 function safeOrigin(value: string, development: boolean): string {
   const url = new URL(value);
   const local = development && url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
@@ -137,12 +149,12 @@ export function createAuthClient(options: { baseURL: string; frontendOrigin: str
   if (new URL(options.frontendOrigin).pathname !== '/' || !base.pathname.endsWith('/api/v1/auth')) throw new AuthError('not-configured');
   const cooldowns = new Map<string, number>();
   const callback = (path: string) => new URL(path, frontendOrigin).href;
-  async function request(path: string, signal: AbortSignal, body?: JsonObject): Promise<unknown> {
+  async function request(path: string, signal: AbortSignal, body?: JsonObject, profileRequest = false): Promise<unknown> {
     const retryAt = cooldowns.get(path);
     if (retryAt && retryAt > Date.now()) throw new AuthError('rate-limited', retryAt);
     let response: Response;
     try {
-      response = await (options.fetch ?? fetch)(base.href + '/' + path, {
+      response = await (options.fetch ?? fetch)((profileRequest ? base.href.replace(/\/auth$/, '') : base.href) + '/' + path, {
         method: body ? 'POST' : 'GET', credentials: 'include', cache: 'no-store', redirect: 'error', signal,
         headers: body ? { 'Content-Type': 'application/json', Accept: 'application/json' } : { Accept: 'application/json' },
         ...(body ? { body: JSON.stringify(body) } : {}),
@@ -158,7 +170,9 @@ export function createAuthClient(options: { baseURL: string; frontendOrigin: str
         cooldowns.set(path, until);
         throw new AuthError('rate-limited', until);
       }
+      if (response.status === 503 && object(value) && value.code === 'EMAIL_DELIVERY_FAILED') throw new AuthError('email-delivery');
       if (response.status >= 500) throw new AuthError('server');
+      if (profileRequest && response.status === 400) throw new AuthError('profile-validation');
       const code = object(value) && typeof value.code === 'string' && Object.prototype.hasOwnProperty.call(codes, value.code) ? codes[value.code] : undefined;
       throw new AuthError(code ?? (response.status === 401 ? (path === 'sign-in/email' ? 'credentials' : 'unauthorized') : response.status === 403 ? 'forbidden' : 'request'));
     }
@@ -179,7 +193,7 @@ export function createAuthClient(options: { baseURL: string; frontendOrigin: str
           session.userId !== user.id || typeof session.expiresAt !== 'string') throw new AuthError('invalid-response');
       if (typeof user.name !== 'string' || !user.name.trim()) throw new AuthError('invalid-response');
       return checkedSession({ user: {
-        id: user.id, email: user.email, role: user.role === 'ADMIN' ? 'ADMIN' : 'USER',
+        id: user.id, email: user.email, role: user.role === 'ADMIN' || user.role === 'MAINTAINER' ? user.role : 'USER',
         emailVerified: user.emailVerified === true,
         name: user.name,
         ...(typeof user.image === 'string' ? { image: user.image } : {}),
@@ -189,10 +203,14 @@ export function createAuthClient(options: { baseURL: string; frontendOrigin: str
       const value = await request('sign-in/email', signal, { email: input.email, password: input.password, rememberMe: true });
       if (!object(value) || value.redirect !== false || !object(value.user)) throw new AuthError('invalid-response');
     },
-    registrationAvailable: false,
-    async signUp() {
-      // The old contract requires a unique username. Do not send that model.
-      throw new AuthError('contract-pending');
+    registrationAvailable: true,
+    async signUp(input, signal) {
+      if (!validUsername(input.name)) throw new AuthError('username');
+      const value = await request('sign-up/email', signal, {
+        name: input.name, email: input.email, password: input.password, callbackURL: callback('/auth/verified'),
+      });
+      if (!object(value) || value.token !== null || !object(value.user)) throw new AuthError('invalid-response');
+      return 'verify-email';
     },
     async signOut(signal) {
       const value = await request('sign-out', signal, {});
@@ -201,10 +219,16 @@ export function createAuthClient(options: { baseURL: string; frontendOrigin: str
     requestPasswordReset: (email, signal) => status('request-password-reset', signal, { email, redirectTo: callback('/reset-password') }),
     completePasswordReset: (token, newPassword, signal) => status('reset-password', signal, { token, newPassword }),
     sendVerificationEmail: (email, signal) => status('send-verification-email', signal, { email, callbackURL: callback('/auth/verified') }),
-    async updateImage(image, signal) {
-      const url = profileImageURL(image);
-      if (!url) throw new AuthError('image');
-      await status('update-user', signal, { image: url });
+    async getProfile(signal) {
+      const value = await request('me/profile', signal, undefined, true);
+      if (!object(value)) throw new AuthError('invalid-response');
+      return value.profile === null ? null : checkedProfile(value.profile);
+    },
+    async saveProfile(input, signal) {
+      // Allowlist six fields: never forward IDs, names, roles or other contacts.
+      const body: JsonObject = {};
+      for (const { key } of contactFields) body[key] = input[key];
+      return checkedProfile(await request('me/profile', signal, body, true));
     },
     async listAccounts(signal) {
       const value = await request('list-accounts', signal);

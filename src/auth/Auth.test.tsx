@@ -4,10 +4,11 @@ import App from '../App';
 import { Desktop } from '../components/Desktop/Desktop';
 import { WindowManagerProvider } from '../state/WindowManagerContext';
 import { AuthProvider, useAuth } from './AuthContext';
+import { ContactInput, ContactProfile, contactBody, emptyContact } from './contactProfile';
 import { AuthAdapter, AuthError, AuthSession, LinkedAccount, checkedRedirect, checkedSession } from './client';
 
 jest.mock('../apps/Gallery/Gallery', () => ({ Gallery: () => null }));
-const user = { id: 'user-1', username: 'Testbenutzer', name: 'Testbenutzer', email: 'test@example.com', role: 'USER' as const };
+const user = { id: 'user-1', name: 'Testbenutzer', email: 'test@example.com', emailVerified: true, role: 'USER' as const };
 const signedIn = (): AuthSession => ({ user, expiresAt: Date.now() + 3600000 });
 function adapterForTest() {
   return {
@@ -17,6 +18,8 @@ function adapterForTest() {
     signUp: jest.fn(async () => 'verify-email' as const),
     signOut: jest.fn(async () => undefined),
     requestPasswordReset: jest.fn(async () => undefined),
+    getProfile: jest.fn(async (_signal: AbortSignal): Promise<ContactProfile | null> => null),
+    saveProfile: jest.fn(async (input: ContactInput, _signal: AbortSignal): Promise<ContactProfile> => ({ ...input, userId: 'user-1', updatedAt: new Date().toISOString() })),
     listAccounts: jest.fn(async (): Promise<LinkedAccount[]> => []),
     startDiscord: jest.fn(async () => 'https://discord.com/oauth2/authorize?state=backend-state'),
   };
@@ -37,7 +40,7 @@ function credentials(dialog: HTMLElement) {
   fireEvent.change(within(dialog).getByLabelText('Passwort:'), { target: { value: 'correct test password' } });
 }
 function registration(dialog: HTMLElement) {
-  fireEvent.change(within(dialog).getByLabelText('Benutzername:'), { target: { value: '  Testbenutzer  ' } });
+  fireEvent.change(within(dialog).getByLabelText('Benutzername:'), { target: { value: 'Testbenutzer' } });
   credentials(dialog);
   fireEvent.change(within(dialog).getByLabelText('Passwort bestätigen:'), { target: { value: 'correct test password' } });
 }
@@ -95,7 +98,7 @@ test('validates registration before sending and handles email verification witho
   fireEvent.click(within(menu()).getByRole('menuitem', { name: 'Registrieren' }));
   const dialog = screen.getByRole('dialog', { name: 'Neues Konto erstellen' });
   fireEvent.click(within(dialog).getByRole('button', { name: 'Registrieren' }));
-  expect(within(dialog).getByRole('alert')).toHaveTextContent('Benutzernamen');
+  expect(within(dialog).getByRole('alert')).toHaveTextContent('Benutzername');
   expect(adapter.signUp).not.toHaveBeenCalled();
   registration(dialog);
   fireEvent.change(within(dialog).getByLabelText('Passwort bestätigen:'), { target: { value: 'wrong' } });
@@ -355,9 +358,9 @@ test('user.name is displayed with stable user ID and no username editor', async 
   expect(within(dialog).getAllByText('Discord Name').length).toBeGreaterThan(0);
   expect(within(dialog).getByText('user-1')).toBeInTheDocument();
   expect(within(dialog).queryByRole('form', { name: /Benutzername/ })).not.toBeInTheDocument();
-  expect(within(dialog).getByRole('button', { name: 'Kontaktdaten speichern' })).toBeDisabled();
+  await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Kontaktdaten speichern' })).toBeEnabled());
   for (const label of ['Vorname:', 'Nachname:', 'Stra\u00dfe:', 'Hausnummer:', 'Postleitzahl:', 'Ort:']) {
-    expect(within(dialog).getByLabelText(label)).toBeDisabled();
+    expect(within(dialog).getByLabelText(label)).toBeEnabled();
     expect(within(dialog).getByLabelText(label)).not.toBeRequired();
   }
 });
@@ -478,25 +481,12 @@ test('start menu uses login and registration icons without the Windows branding'
   expect(within(within(start).getByRole('menuitem', { name: 'Registrieren' })).getByAltText('')).toHaveAttribute('src', expect.stringContaining('retro-register.svg'));
 });
 
-test('a user can save a profile image and the confirmed session updates the start menu', async () => {
-  const adapter = { ...linkedAdapter(), updateImage: jest.fn(async () => undefined) };
-  adapter.getSession.mockResolvedValueOnce({ ...signedIn(), user: { ...user, emailVerified: true } }).mockResolvedValueOnce({ ...signedIn(), user: { ...user, image: 'https://images.example.com/avatar.png' } });
-  mount(adapter); await ready();
-  const dialog = await openAccount();
-  fireEvent.change(within(dialog).getByLabelText('Bildadresse:'), { target: { value: 'http://insecure.example/avatar.png' } });
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Profilbild speichern' }));
-  expect(within(dialog).getByRole('alert')).toHaveTextContent('HTTPS-Bildadresse');
-  expect(adapter.updateImage).not.toHaveBeenCalled();
-  fireEvent.change(within(dialog).getByLabelText('Bildadresse:'), { target: { value: 'https://images.example.com/avatar.png' } });
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Profilbild speichern' }));
-  await screen.findByText('Ihr Profilbild wurde gespeichert.');
-  expect(adapter.updateImage).toHaveBeenCalledWith('https://images.example.com/avatar.png', expect.any(AbortSignal));
+test('profile image is displayed but update-user editing is unavailable', async () => {
+  const adapter = linkedAdapter();
+  adapter.getSession.mockResolvedValue({ ...signedIn(), user: { ...user, image: 'https://images.example.com/avatar.png' } });
+  mount(adapter); await ready(); const dialog = await openAccount();
   expect(within(dialog).getByAltText('Profilbild von Testbenutzer')).toHaveAttribute('src', 'https://images.example.com/avatar.png');
-  const start = menu();
-  const avatar = within(start).getByAltText('Profilbild von Testbenutzer');
-  expect(avatar).toHaveAttribute('src', 'https://images.example.com/avatar.png');
-  fireEvent.error(avatar);
-  expect(avatar).toHaveAttribute('src', expect.stringContaining('retro-user.svg'));
+  expect(within(dialog).queryByLabelText('Bildadresse:')).not.toBeInTheDocument();
 });
 
 test('linking callbacks sanitize error queries and reopen the account window', async () => {
@@ -512,7 +502,7 @@ test('linking callbacks sanitize error queries and reopen the account window', a
   expect(adapter.linkDiscord).not.toHaveBeenCalled();
 });
 
-// These adapters exercise existing session behavior, not an unconfirmed profile API.
+// Session failures must not discard a still-valid identity.
 test.each(['network', 'server'] as const)('refresh %s retains the known session and recovers on retry', async code => {
   const adapter = adapterForTest();
   adapter.getSession.mockResolvedValueOnce(signedIn()).mockRejectedValueOnce(new AuthError(code)).mockResolvedValueOnce(signedIn());
@@ -544,4 +534,13 @@ test('reload restoration failure stays unavailable and a focus retry restores th
   fireEvent.click(await screen.findByRole('button', { name: 'OK' }));
   fireEvent.focus(window);
   await waitFor(() => expect(screen.getByTestId('auth-state')).toHaveTextContent('authenticated:USER'));
+});
+
+test('Discord return requiring email verification gives a specific safe recovery instruction', async () => {
+  window.history.replaceState(null, '', '/auth/error?error=email_not_verified&error_description=PRIVATE');
+  mount(); await ready();
+  await screen.findByText(/Starten Sie danach die Discord-Anmeldung erneut/);
+  expect(screen.queryByText(/PRIVATE/)).not.toBeInTheDocument();
+  expect(screen.getByRole('dialog', { name: 'Mueller IT MKK Welt Anmeldung' })).toBeInTheDocument();
+  expect(window.location.search).toBe('');
 });

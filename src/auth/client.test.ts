@@ -1,4 +1,5 @@
 import { AuthError, createAuthClient, safeAuthMessage } from './client';
+import { contactBody, emptyContact } from './contactProfile';
 import { readAuthReturn } from './callbacks';
 
 function response(value: unknown, status = 200, retryAfter?: string, retryHeader = 'X-Retry-After'): Response {
@@ -47,11 +48,17 @@ test.each([
   await expect(client.getSession(signal)).rejects.toMatchObject({ code: 'invalid-response' });
 });
 
-test('registration is blocked until a confirmed central-user backend contract exists', async () => {
+test('registration sends only name, email, password and the verification callback, preserving case and duplicate names', async () => {
   const { client, fetcher, signal } = setup();
-  expect(client.registrationAvailable).toBe(false);
-  await expect(client.signUp({ name: 'Alex', email: 'alex@example.com', password: 'long-password-123' }, signal)).rejects.toMatchObject({ code: 'contract-pending' });
-  expect(fetcher).not.toHaveBeenCalled();
+  fetcher.mockResolvedValue(response({ token: null, user: { id: 'u1' } }));
+  const input = { name: 'Alex_1', email: 'alex@example.com', password: 'long-password-123' };
+  expect(client.registrationAvailable).toBe(true);
+  expect(await client.signUp(input, signal)).toBe('verify-email');
+  expect(lastRequest(fetcher)).toEqual([expect.stringMatching(/sign-up\/email$/), expect.objectContaining({ method: 'POST', credentials: 'include', cache: 'no-store' })]);
+  expect(JSON.parse(lastRequest(fetcher)[1].body as string)).toEqual({ ...input, callbackURL: 'https://www.mueller-it-mkk.de/auth/verified' });
+  await client.signUp({ ...input, email: 'other@example.com' }, signal);
+  expect(JSON.parse(lastRequest(fetcher)[1].body as string).name).toBe('Alex_1');
+  expect(fetcher).toHaveBeenCalledTimes(2);
 });
 
 test('email login never returns or stores the token and sign-out sends an empty JSON body', async () => {
@@ -85,17 +92,6 @@ test('Discord uses the fixed frontend callbacks and checks the returned provider
   expect(JSON.parse(lastRequest(fetcher)[1].body as string)).toEqual({ provider: 'discord', callbackURL: 'https://www.mueller-it-mkk.de/auth/callback', errorCallbackURL: 'https://www.mueller-it-mkk.de/auth/error' });
   fetcher.mockResolvedValue(response({ url: 'https://discord.com.attacker.example', redirect: true }));
   await expect(client.startDiscord('', signal)).rejects.toMatchObject({ code: 'oauth' });
-});
-
-test('profile images are saved with cookie credentials through the existing update-user endpoint', async () => {
-  const { client, fetcher, signal } = setup(); fetcher.mockResolvedValue(response({ status: true }));
-  await client.updateImage!('https://images.example.com/avatar.png', signal);
-  expect(lastRequest(fetcher)[0]).toMatch(/\/update-user$/);
-  expect(lastRequest(fetcher)[1]).toMatchObject({ method: 'POST', credentials: 'include' });
-  expect(JSON.parse(lastRequest(fetcher)[1].body as string)).toEqual({ image: 'https://images.example.com/avatar.png' });
-  await expect(client.updateImage!('http://images.example.com/avatar.png', signal)).rejects.toMatchObject({ code: 'image' });
-  await expect(client.updateImage!('https://user:password@images.example.com/avatar.png', signal)).rejects.toMatchObject({ code: 'image' });
-  expect(fetcher).toHaveBeenCalledTimes(1);
 });
 
 test('linked accounts use only documented paths, cookies, and account row IDs', async () => {
@@ -136,7 +132,7 @@ test.each(['45', new Date(Date.now() + 45000).toUTCString()])('also respects the
 
 test.each([
   [401, 'INVALID_EMAIL_OR_PASSWORD', 'credentials'], [403, 'EMAIL_NOT_VERIFIED', 'verification'],
-  [400, 'USERNAME_IS_ALREADY_TAKEN', 'username-taken'], [400, 'INVALID_TOKEN', 'token'],
+  [400, 'USERNAME_IS_ALREADY_TAKEN', 'request'], [400, 'INVALID_TOKEN', 'token'],
   [401, 'SESSION_EXPIRED', 'expired'], [401, 'SESSION_NOT_FRESH', 'fresh-session'],
   [404, 'PROVIDER_NOT_FOUND', 'provider'], [400, 'PASSWORD_TOO_SHORT', 'password'],
   [400, 'INVALID_USERNAME', 'username'], [403, 'INVALID_ORIGIN', 'forbidden'],
@@ -190,4 +186,54 @@ test('transport, server failure and HTTP 401 remain distinct', async () => {
   await expect(client.getSession(signal)).rejects.toMatchObject({ code: 'server' });
   fetcher.mockResolvedValueOnce(response({}, 401));
   await expect(client.getSession(signal)).rejects.toMatchObject({ code: 'unauthorized' });
+});
+
+const rawProfile = () => ({ userId: 'u1', updatedAt: '2026-10-16T12:00:00.000Z', ...contactBody(emptyContact()),
+  postalCode: '01234', countryCode: 'DE', phone: '+49 123', contactEmail: 'contact@example.com' });
+
+test('own profile uses the Nest API base with cookie credentials and distinct GET/POST response shapes', async () => {
+  const { client, fetcher, signal } = setup();
+  fetcher.mockResolvedValueOnce(response({ profile: null }));
+  expect(await client.getProfile!(signal)).toBeNull();
+  fetcher.mockResolvedValueOnce(response({ profile: rawProfile() }));
+  expect(await client.getProfile!(signal)).toEqual({ userId: 'u1', updatedAt: '2026-10-16T12:00:00.000Z', ...contactBody(emptyContact()), postalCode: '01234' });
+  expect(lastRequest(fetcher)).toEqual(['https://api.mueller-it-mkk.de/games/api/v1/me/profile', expect.objectContaining({ method: 'GET', credentials: 'include', cache: 'no-store' })]);
+  fetcher.mockResolvedValueOnce(response(rawProfile(), 201));
+  const input = { ...contactBody(emptyContact()), firstName: 'Alex', userId: 'attacker', role: 'ADMIN', countryCode: null };
+  await client.saveProfile!(input, signal);
+  expect(lastRequest(fetcher)).toEqual(['https://api.mueller-it-mkk.de/games/api/v1/me/profile', expect.objectContaining({ method: 'POST', credentials: 'include', cache: 'no-store', headers: { 'Content-Type': 'application/json', Accept: 'application/json' } })]);
+  expect(JSON.parse(lastRequest(fetcher)[1].body as string)).toEqual({ ...contactBody(emptyContact()), firstName: 'Alex' });
+});
+
+test('profile base is derived correctly for localhost without the games prefix', async () => {
+  const fetcher = jest.fn(async () => response({ profile: null }));
+  const client = createAuthClient({ baseURL: 'http://localhost:3001/api/v1/auth/', frontendOrigin: 'http://localhost:3000', development: true, fetch: fetcher });
+  await client.getProfile!(new AbortController().signal);
+  expect(lastRequest(fetcher)[0]).toBe('http://localhost:3001/api/v1/me/profile');
+});
+
+test.each([{}, { profile: {} }, { profile: { ...rawProfile(), firstName: 4 } }, { profile: { ...rawProfile(), updatedAt: 'invalid' } }])('rejects malformed profile responses without leaking contents', async value => {
+  const { client, fetcher, signal } = setup(); fetcher.mockResolvedValue(response(value));
+  await expect(client.getProfile!(signal)).rejects.toMatchObject({ code: 'invalid-response' });
+});
+
+test.each([[400, 'profile-validation'], [401, 'unauthorized'], [403, 'forbidden'], [503, 'server']] as const)('maps profile HTTP %s to %s', async (status, code) => {
+  const { client, fetcher, signal } = setup(); fetcher.mockResolvedValue(response({ statusCode: status, message: 'PRIVATE_CONTACT_DATA' }, status));
+  const error = await client.saveProfile!(contactBody(emptyContact()), signal).catch(error => error);
+  expect(error).toMatchObject({ code });
+  expect(safeAuthMessage(error)).not.toContain('PRIVATE_CONTACT_DATA');
+});
+
+test('SMTP failure has recovery instructions and never exposes backend details', async () => {
+  const { client, fetcher, signal } = setup(); fetcher.mockResolvedValue(response({ code: 'EMAIL_DELIVERY_FAILED', message: 'SECRET_SMTP' }, 503));
+  const error = await client.signUp({ name: 'Alex', email: 'a@b.de', password: 'long-password' }, signal).catch(error => error);
+  expect(error).toMatchObject({ code: 'email-delivery' });
+  expect(safeAuthMessage(error)).toMatch(/Konto kann bereits angelegt sein/);
+  expect(safeAuthMessage(error)).not.toMatch(/SECRET/);
+});
+
+test('MAINTAINER is preserved without promoting unknown roles', async () => {
+  const { client, fetcher, signal } = setup();
+  fetcher.mockResolvedValue(response({ ...rawSession(), user: { ...rawSession().user, role: 'MAINTAINER' } }));
+  expect((await client.getSession(signal))?.user.role).toBe('MAINTAINER');
 });

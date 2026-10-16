@@ -3,6 +3,7 @@ import { useWindowManager } from '../state/WindowManagerContext';
 import { publicAsset } from '../utils/publicAsset';
 import { useAuth } from './AuthContext';
 import { useAuthWindow } from './useAuthWindow';
+import { validUsername, usernameHint } from './contactProfile';
 import './auth.css';
 
 export function AuthWindows() {
@@ -87,7 +88,7 @@ export function RegistrationDialog({ windowId }: { windowId: string }) {
   async function submit(event: FormEvent) {
     event.preventDefault();
     const invalid = [
-      ...(!username.trim() ? ['Bitte geben Sie einen Benutzernamen ein.'] : []),
+      ...(!validUsername(username) ? [usernameHint] : []),
       ...(!validEmail(email.trim()) ? [emailError] : []),
       ...(!password ? ['Bitte geben Sie ein Passwort ein.'] : []),
       ...(passwordPolicy && (password.length < passwordPolicy.minLength || password.length > passwordPolicy.maxLength) ? [`Das Passwort muss zwischen ${passwordPolicy.minLength} und ${passwordPolicy.maxLength} Zeichen lang sein.`] : []),
@@ -97,7 +98,7 @@ export function RegistrationDialog({ windowId }: { windowId: string }) {
     if (invalid.length) return;
     const secret = password;
     setPassword(''); setConfirmation('');
-    if (await register({ name: username.trim(), email: email.trim(), password: secret })) closeWindow(windowId);
+    if (await register({ name: username, email: email.trim(), password: secret })) closeWindow(windowId);
   }
   return <form aria-label="Registrierungsdaten" className="auth-dialog" onSubmit={submit} noValidate aria-busy={busy}>
     <Intro><p>Erstellen Sie ein Benutzerkonto für Müller IT MKK.</p></Intro>

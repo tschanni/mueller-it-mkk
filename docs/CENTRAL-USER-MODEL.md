@@ -1,60 +1,85 @@
-# Zentrales Benutzermodell – Integrationslücken
+# Zentrales Benutzermodell: Kompatibilitaet und Integration
 
-Stand: 16.10.2026. Maßgeblicher vorhandener Vertrag:
-[AUTH_API_CONTRACT.md](AUTH_API_CONTRACT.md), Stand 15.10.2026.
-Dieser beschreibt noch **nicht** das angeforderte zentrale Benutzermodell.
-Die lokalen Backend-Checkouts enthalten ebenfalls keine passende Kontaktprofil-API.
-Der Benutzer hat bestätigt: Der neue Vertrag wird erst nach Backend-Implementierung
-in `tschanni/Gameserver_Dashboard`, Branch `main`, Datei
-`docs/AUTH_API_CONTRACT.md` bereitgestellt. Die konkrete API-Integration wartet
-auf diesen Vertrag und die zugehörige Commit-ID.
+Stand: 16.10.2026. Backend: `tschanni/Gameserver_Dashboard`, Branch `main`.
+Gepruefter Commit: **03030cce4409eec9a347998feeea71062affd5fb**.
+`git fetch origin main` hat den Remote-Tracking-Branch auf genau diesen SHA
+aktualisiert; `git rev-parse 03030cc^{commit}` stimmt damit ueberein.
+Die vorherigen lokalen Frontend-Aenderungen waren bereits eingecheckt;
+der Arbeitsbaum war beim Beginn dieser Integration sauber.
 
-## Vor Implementierung durch das Backend zu bestätigen
+[AUTH_API_CONTRACT.md](AUTH_API_CONTRACT.md) und
+[USER_MODEL_MIGRATION.md](USER_MODEL_MIGRATION.md) sind unveraenderte Kopien
+aus diesem Commit. Zusaetzlich wurden `src/auth/auth.service.ts`,
+`src/profile/profile.module.ts`, `src/common/http.ts` und das Prisma-Schema
+im selben Commit zur Pruefung von Validierung und Antwortformat gelesen.
 
-| Bereich | Benötigter Vertrag | Vorhandener Stand |
-| --- | --- | --- |
-| Registrierung | Benutzername als Better Auth `name`, E-Mail, Passwort; keine Personen-/Kontaktdaten; gleiche Namen erlaubt | `name` und eindeutiger, normalisierter `username` erforderlich |
-| Session | `user.id`, `user.name`, E-Mail, Verifikationsstatus, Rolle und Ablaufdatum | `name` ist bereits dokumentiert; separater `username` entfällt im Zielmodell |
-| Kontakt lesen | Exakte Methode, URL und Response für das eigene optionale Kontaktprofil | Kein Endpunkt dokumentiert |
-| Kontakt speichern | Exakte Methode, URL, Body und Response; Vorname, Nachname, Straße, Hausnummer, Postleitzahl, Ort | Kein Endpunkt dokumentiert |
-| Leerwerte | Regeln für fehlende Felder, leere Strings und `null`; Löschen bereits gespeicherter Werte; vollständiges Ersetzen oder Teiländerung | Unbekannt |
-| Validierung | Feldnamen, erlaubte Länge/Zeichen, Status und maschinenlesbare Feldfehler; keine Pflicht-Kontaktdaten | Unbekannt |
-| Eigentum | Backend bestimmt Benutzer ausschließlich aus Cookie-Session; kein Schreiben/Lesen fremder Profile durch übergebene Benutzer-ID | Nachzuweisen, einschließlich negativer Integrationstests |
-| Registrierung/Migration | Entfernung der Username-Eindeutigkeit und des Plugins/alter Schreibrechte; Verhalten bestehender und Discord-Konten | Noch zu bestätigen |
+## Kompatibilitaetspruefung vor der Integration
 
-Es werden ausdrücklich keine Kontakt-URLs, JSON-Feldnamen oder Längenlimits
-als bereits implementierte Backend-Fakten festgelegt. Erforderlich sind Beispiele
-für Erfolg, Feldvalidierung, 401, 403 und 5xx sowie Backend-Tests für Eigentum,
-vollständig leere Kontakte und zwei Konten mit demselben Namen.
+| Bereich | Befund und Umsetzung |
+| --- | --- |
+| Auth-Basis | Unveraendert `/games/api/v1/auth`, lokal `/api/v1/auth` |
+| Registrierung | POST `/sign-up/email` mit `name`, `email`, `password`, `callbackURL`; keine Username-Plugin-Felder; Name unveraendert in Gross-/Kleinschreibung |
+| Namen | 1 bis 64 Zeichen, keine Leer-/Steuerzeichen oder spitzen Klammern; doppelte Namen erlaubt; Identitaet ausschliesslich `user.id` |
+| Login | E-Mail/Passwort oder Discord; bestehender Cookie-/Callback-Ablauf kompatibel |
+| Profil | GET/POST `/games/api/v1/me/profile`, ausserhalb der Auth-Basis; gleiche Cookies; nur eigene verifizierte Session |
+| Antworten | GET `{ profile: null }` oder `{ profile: Profile }`; POST 201 mit direktem `Profile` |
+| Loeschen | POST ist Teilaktualisierung; leere Formularfelder werden explizit als `null` gesendet |
+| Schreibschutz | `/update-user` ist vollstaendig deaktiviert, auch fuer Bilder. Namenseditor bleibt entfernt; Bildeditor wurde entfernt, bestehendes Bild bleibt sichtbar |
+| Rollen | `MAINTAINER` wird als Rolle erhalten und angezeigt; unbekannte Rollen bleiben `USER`. Keine neue Verwaltungsoberflaeche oder Admin-API-Aufrufe |
+| Fehler | Nest-400 enthaelt nur `Invalid request`, keine Feldfehler. Feldhinweise folgen den geprueften DTO-Regeln; Server-400 erzeugt eine allgemeine sichere Validierungsmeldung |
 
-## Frontend bis zur Vertragsaktualisierung
+Vertragswiderspruch: Der Absatz zu Discord-only-Benutzern empfiehlt noch eine
+Namenswahl ueber `/update-user`; auch die Fehlertabelle enthaelt einen alten
+Username-Eindeutigkeitsfehler. Das widerspricht dem ausdruecklichen neuen
+Namensmodell, der Endpunkttabelle, dem Migrationsplan und dem Backend-Hook
+(`USER_UPDATE_DISABLED`). Es werden weder Namensaenderung noch Eindeutigkeits-
+pruefung implementiert. Die Quellkopie bleibt fuer Nachvollziehbarkeit unveraendert.
 
-Die Registrierung zeigt die Zielfelder, bleibt beim produktiven Adapter jedoch
-gesperrt. Auch direkte Adapter-Aufrufe senden keine alte Registrierung mehr.
-Das optionale Kontaktformular zeigt alle sechs Felder deaktiviert mit Hinweis.
-Es liest/speichert keine Kontaktdaten und behauptet keinen Speichererfolg.
-Login, Discord, E-Mail-Bestätigung und Passwort-Reset verwenden weiter die
-bestätigten Endpunkte. Anzeigen verwenden `user.name`; der Name ist nicht editierbar.
+## Profil und Datenschutz
 
-## Cookies, CORS und Fehler
+Die sechs beauftragten Felder sind `firstName`, `lastName`, `street`,
+`houseNumber`, `postalCode`, `city`. Die Laengen und Zeichenregeln entsprechen
+dem DTO. PLZ ist immer Text, inklusive fuehrender Nullen und internationaler
+Zeichen. Alle Felder koennen leer bleiben. `countryCode`, `phone`, `contactEmail`
+werden weder angezeigt noch gesendet, daher bei Teilaktualisierung nicht geloescht.
+Antworten werden auf sechs Kontaktfelder sowie `userId`/`updatedAt` reduziert.
 
-Weiterhin `credentials: include`, `cache: no-store`, keine Bearer-Tokens oder
-Sessiondaten im Browser-Speicher. Produktion: HTTPS für Frontend und API,
-host-only HttpOnly/Secure-Cookie auf `api.mueller-it-mkk.de`, SameSite=Lax.
-Beide HTTPS-Subdomains sind same-site. CORS muss die konkrete Frontend-Origin
-und Credentials erlauben, einschließlich OPTIONS/Content-Type bei JSON-POSTs;
-keine Wildcard. Trusted Origins und Callback-URLs müssen übereinstimmen.
-Retry-After-Header müssen bei Cross-Origin-Zugriff exponiert werden.
-Andere Hosting-Domains benötigen eine separat bestätigte Cookie-Konfiguration.
+Keine Benutzer-ID im Request-Body, kein Admin-Profilpfad. Das Backend waehlt die
+Identitaet aus der Session. Das Frontend prueft die Antwort-ID zusaetzlich.
+Profile sind nicht Teil der Session und werden nur im angemeldeten, verifizierten
+Kontofenster geladen. Keine Speicherung in Local-/SessionStorage. Logout,
+Sessionende, Kontowechsel und Schliessen entfernen den lokalen Formularzustand.
+Abgebrochene/veraltete Antworten duerfen keine Daten oder Fehler in ein anderes
+Konto uebertragen, auch nicht bei gleicher Namensanzeige.
 
-Transportfehler (einschließlich vom Browser verborgener CORS-Fehler), HTTP-5xx,
-HTTP-401 und bestätigtes Session-Ende erhalten verschiedene Hinweise.
-Ein Transport-/Serverfehler entfernt eine bekannte, noch nicht abgelaufene
-Session nicht. Nach Reload wird ausschließlich per Cookie wiederhergestellt.
-Ohne bestätigte Session bleibt bei Fehlern der Status ungeprüft/nicht verfügbar.
-Ein 200 `null`, explizites SESSION_EXPIRED oder erreichtes Ablaufdatum beendet
-die lokale Session. Ein 401 bei Session-/geschützten Anfragen verlangt Login.
+GET-Timeout 10 Sekunden, Save-Timeout 15 Sekunden; ein fehlgeschlagenes Laden
+sperrt das Speichern bis zum erfolgreichen erneuten Laden. Validierungs-,
+Netzwerk- und Serverfehler erhalten den Entwurf. Erfolg wird erst nach validierter
+Serverantwort angezeigt. Doppelte Submissions werden verhindert.
 
-Kein Deployment ohne separate Freigabe. Die bestehende Main-Push-Pipeline
-veröffentlicht automatisch; deshalb gehört auch ein Push nach Main nicht zur
-lokalen Umsetzung.
+## Verbleibende Integrationsrisiken
+
+- Kein Mischbetrieb mit altem Backend. Ob der gepruefte Commit produktiv laeuft,
+  wurde nicht durch schreibende Produktionsanfragen getestet.
+- Proxy muss GET/POST/OPTIONS fuer `/games/api/v1/me/profile` explizit erlauben;
+  die Auth-Allowlist reicht nicht. Keine Proxy-Aenderung hier vorgenommen.
+- CORS mit konkreter Frontend-Origin, Credentials und korrektem OPTIONS;
+  Auth-/Profilantworten nicht cachen; Set-Cookie unveraendert weiterreichen.
+  API-Cookie host-only, HttpOnly, Secure, SameSite=Lax. Nur same-site HTTPS-
+  Subdomains bzw. ein passendes lokales Backend verwenden.
+- Migration `202610160001_user_contact_profile` nach dem Migrationsplan separat
+  freigeben, Backup/Restore und Altbestand pruefen. Kein DB-Zugriff oder Migration
+  durch diese Frontend-Arbeit. Discord-only-Altname muss ggf. autorisiert
+  abgeglichen werden; kein Erraten oder Frontend-Ueberschreiben.
+- Echte SMTP-Zustellung, Discord-OAuth sowie Browser-Cookies/CORS sind noch
+  manuell abzunehmen. SMTP-503 kann ein bereits angelegtes Konto hinterlassen;
+  die UI verweist auf erneute Verifikationsmail.
+- Kein ETag-/Versionskonfliktvertrag: gleichzeitige Bearbeitung in zwei Tabs
+  kann zuletzt geschriebene Feldwerte uebernehmen. Bei verlorener Save-Antwort
+  kann serverseitig bereits gespeichert worden sein; die UI behauptet keinen Erfolg.
+- Frontend-Tests mit HTTP-/Adapter-Mocks belegen keine serverseitige Isolation;
+  diese ist im Backend getestet und bei Browser-Abnahme erneut zu pruefen.
+
+Keine Veroeffentlichung, kein Push, keine produktive Konfigurationsaenderung.
+Der lokale Commit ist separat reviewbar. Main-Push loest die vorhandene
+Deployment-Pipeline aus und benoetigt deshalb eine gesonderte Freigabe.

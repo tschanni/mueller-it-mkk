@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AuthAdapter, AuthError, AuthSession, LinkedAccount, LoginInput, RegistrationInput, authClient, checkedRedirect, checkedSession, safeAuthMessage } from './client';
+import { ContactInput, ContactProfile } from './contactProfile';
 import { readAuthReturn } from './callbacks';
 
 type Status = 'loading' | 'anonymous' | 'authenticated' | 'unavailable';
@@ -25,7 +26,8 @@ interface AuthState {
   hasResetToken: boolean;
   completePasswordReset: (password: string) => Promise<boolean>;
   resendVerification: (email: string) => Promise<boolean>;
-  updateImage: (image: string) => Promise<boolean>;
+  getProfile: (signal: AbortSignal) => Promise<ContactProfile | null>;
+  saveProfile: (input: ContactInput, signal: AbortSignal) => Promise<ContactProfile>;
   listAccounts: (signal: AbortSignal) => Promise<LinkedAccount[]>;
   linkDiscord: () => Promise<boolean>;
   unlinkAccount: (accountId: string) => Promise<boolean>;
@@ -67,6 +69,7 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
   const noticeId = useRef(0);
   const current = useRef<AuthSession | null>(null);
   const mounted = useRef(false);
+  const identityVersion = useRef(0);
   const revision = useRef(0);
   const operation = useRef<AbortController | null>(null);
   const restoring = useRef<AbortController | null>(null);
@@ -75,6 +78,7 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
     setNotice({ id: ++noticeId.current, text, title, kind });
   }, []);
   const apply = useCallback((value: AuthSession | null) => {
+    if (current.current?.user.id !== value?.user.id) identityVersion.current++;
     current.current = value;
     setSession(value); setStatus(value ? 'authenticated' : 'anonymous');
   }, []);
@@ -113,7 +117,10 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
     if (!returnHandled.current) {
       returnHandled.current = true;
       if (entry.kind !== 'desktop') window.history.replaceState(null, '', '/');
-      if (entry.kind === 'oauth' && entry.failed) { setEntryWindow('auth-login'); notify(new AuthError('oauth').message, 'Discord-Anmeldung', 'error'); }
+      if (entry.kind === 'oauth' && entry.failed) {
+        setEntryWindow('auth-login');
+        notify(entry.verificationRequired ? 'Bitte best\u00e4tigen Sie zuerst Ihre E-Mail-Adresse. Starten Sie danach die Discord-Anmeldung erneut.' : new AuthError('oauth').message, 'Discord-Anmeldung', entry.verificationRequired ? 'warning' : 'error');
+      }
       if (entry.kind === 'verified') {
         setEntryWindow('auth-login');
         notify(entry.failed ? new AuthError('token').message : 'Ihre E-Mail-Adresse wurde bestätigt. Sie können sich jetzt anmelden.', 'E-Mail-Bestätigung', entry.failed ? 'error' : 'success');
@@ -169,6 +176,35 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
       throw error;
     }
   }, [adapter, handleFailure]);
+
+  const profileRequest = useCallback(async <T,>(signal: AbortSignal, action: () => Promise<T>): Promise<T> => {
+    const owner = current.current;
+    const version = identityVersion.current;
+    try {
+      if (!owner || owner.expiresAt <= Date.now()) throw new AuthError('expired');
+      if (!owner.user.emailVerified) throw new AuthError('verification');
+      const result = await abortable(action(), signal);
+      if (!mounted.current || signal.aborted || version !== identityVersion.current) throw new AuthError('network');
+      return result;
+    } catch (error) {
+      if (mounted.current && !signal.aborted && version === identityVersion.current) handleFailure(error);
+      throw error;
+    }
+  }, [handleFailure]);
+  const getProfile = useCallback((signal: AbortSignal) => profileRequest(signal, async () => {
+    if (!adapter.getProfile) throw new AuthError('not-configured');
+    const userId = current.current!.user.id;
+    const profile = await adapter.getProfile(signal);
+    if (profile && profile.userId !== userId) throw new AuthError('invalid-response');
+    return profile;
+  }), [adapter, profileRequest]);
+  const saveProfile = useCallback((input: ContactInput, signal: AbortSignal) => profileRequest(signal, async () => {
+    if (!adapter.saveProfile) throw new AuthError('not-configured');
+    const userId = current.current!.user.id;
+    const profile = await adapter.saveProfile(input, signal);
+    if (profile.userId !== userId) throw new AuthError('invalid-response');
+    return profile;
+  }), [adapter, profileRequest]);
 
   async function run(action: (signal: AbortSignal) => Promise<void>): Promise<boolean> {
     if (operation.current) return false;
@@ -236,11 +272,7 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
       await adapter.sendVerificationEmail(email, signal);
       if (mounted.current && !signal.aborted) notify('Bitte prüfen Sie Ihren Posteingang. Falls eine Bestätigung erforderlich ist, erhalten Sie eine Nachricht.', 'E-Mail-Bestätigung', 'success');
     }),
-    updateImage: image => run(async signal => {
-      if (!adapter.updateImage) throw new AuthError('not-configured');
-      await adapter.updateImage(image, signal); await acceptSession(signal);
-      if (mounted.current && !signal.aborted) notify('Ihr Profilbild wurde gespeichert.', 'Mein Konto', 'success');
-    }),
+    getProfile, saveProfile,
     listAccounts, reauthentication,
     linkDiscord: () => run(async signal => {
       if (!current.current?.user.emailVerified) throw new AuthError('verification');

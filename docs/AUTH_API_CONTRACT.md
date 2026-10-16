@@ -1,6 +1,11 @@
 # Auth API contract
 
-Verbindlicher Integrationsvertrag für das separate React-Frontend. Stand: 15.10.2026.
+Ergaenzend: [Privater Profilvertrag und Migrationsplan](USER_MODEL_MIGRATION.md).
+
+Verbindlicher Integrationsvertrag für das separate React-Frontend. Stand: 16.10.2026.
+Die Identität gehört zur gesamten Webseite **Müller IT MKK**. Der bestehende
+`/games/api/v1/auth`-Pfad bleibt als kompatibler technischer Mount bestehen;
+es gibt keinen zweiten Benutzerbestand und keine parallele Authentifizierung.
 Implementiert mit Better Auth **1.7.10**, Prisma **6.19.0**, SQLite und NestJS **11** auf Express **5**. Die Anwendung verwendet nun ESM (`type: module`, TypeScript NodeNext); Node **22.13.0** wurde lokal geprüft. Node-Bereich des Projekts: >=22.13 <25. Keine zusätzliche Datenbank und kein Identity Provider erforderlich.
 
 ## Basis und HTTP-Konventionen
@@ -14,7 +19,7 @@ JSON-Anfragen: `Content-Type: application/json`, Browser immer `credentials: 'in
 
 | Methode | Pfad                       | JSON-Body / Query                                                                                                                                                                                           | Erfolg                                                                                                                                     |
 | ------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| POST    | `/sign-up/email`           | `{ "name": "Alex", "username": "alex_1", "email": "alex@example.com", "password": "mindestens-12-Zeichen", "callbackURL": "https://www.mueller-it-mkk.de/auth/verified" }`                                  | 200 `{ "token": null, "user": User }`; Verifikationsmail, noch keine Session                                                               |
+| POST    | `/sign-up/email`           | `{ "name": "alex_1", "email": "alex@example.com", "password": "mindestens-12-Zeichen", "callbackURL": "https://www.mueller-it-mkk.de/auth/verified" }`                                                      | 200 `{ "token": null, "user": User }`; Verifikationsmail, noch keine Session                                                               |
 | POST    | `/sign-in/email`           | `{ "email": "alex@example.com", "password": "…", "rememberMe": true }`; optional `callbackURL`                                                                                                              | 200 `{ "redirect": false, "token": "…", "user": User }`; bei `callbackURL` zusätzlich `url`, `redirect: true`, Location-Header             |
 | POST    | `/sign-in/social`          | `{ "provider": "discord", "callbackURL": "https://www.mueller-it-mkk.de/auth/callback", "errorCallbackURL": "https://www.mueller-it-mkk.de/auth/error" }`; optional `newUserCallbackURL`, `disableRedirect` | 200 `{ "url": "https://discord.com/…", "redirect": true }`; Location-Header, OAuth-State-Cookie                                            |
 | POST    | `/sign-out`                | `{}` mit Session-Cookie                                                                                                                                                                                     | 200 `{ "success": true }`; Datenbank-Session gelöscht, Cookie gelöscht                                                                     |
@@ -28,11 +33,48 @@ JSON-Anfragen: `Content-Type: application/json`, Browser immer `credentials: 'in
 | POST    | `/link-social`             | `{ "provider": "discord", "callbackURL": "https://www.mueller-it-mkk.de/settings/accounts" }` mit Session                                                                                                   | 200 `{ "url": "https://discord.com/…", "redirect": true }`                                                                                 |
 | GET     | `/list-accounts`           | Session-Cookie                                                                                                                                                                                              | 200 Array mit `id`, `providerId`, `accountId`, `userId`, `createdAt`, `updatedAt`, `scopes: string[]`; keine Passwörter oder OAuth-Tokens  |
 | POST    | `/unlink-account`          | `{ "accountId": "<id aus list-accounts>" }` mit frischer Session                                                                                                                                            | 200 `{ "status": true }`; letztes Anmeldekonto kann nicht entfernt werden                                                                  |
-| POST    | `/update-user`             | z.B. `{ "name": "Alex", "username": "alex_2" }` mit Session                                                                                                                                                 | 200 `{ "status": true }`; `role` ist nicht beschreibbar, `email` über diesen Pfad ebenfalls nicht                                          |
+| POST    | `/update-user`             | beliebiger Body                                                                                                                                                                                             | 400 `USER_UPDATE_DISABLED`                                                                                                                 |
 
 Alle anderen Auth-Pfade und Methodenkombinationen werden serverseitig mit 404 abgewiesen. Insbesondere keine öffentlichen Provider-Token-APIs, kein Username-Login und keine eigenen JWT-Endpunkte. OPTIONS wird von CORS beantwortet.
 
-`name` und `username` sind bei E-Mail-Registrierung erforderlich. Username: 3–30 Zeichen, gemäß offiziellem Username-Plugin Buchstaben/Ziffern/Unterstrich/Punkt; Normalisierung auf Kleinbuchstaben, eindeutig. Passwörter: 12–128 Zeichen, Hashing ausschließlich durch Better Auth (scrypt-Standard). `role` in Registrierungsdaten gewährt keine Rechte. Die Bibliothek kann zur Verhinderung von E-Mail-Enumeration bei wiederholter Registrierung eine synthetische Erfolgsmeldung liefern; Erfolg allein beweist deshalb kein neu angelegtes Konto. Das Frontend soll stets auf den Posteingang verweisen.
+`name` ist der verpflichtende Benutzername: 1-64 Zeichen, keine Leerzeichen, Steuerzeichen oder spitzen Klammern. Gross-/Kleinschreibung bleibt erhalten. Doppelte Namen sind erlaubt. Keine Felder `username` oder `displayUsername`. Keine Namensaenderung und kein Username-Login. Registrierung: name, email, password (12-128 Zeichen); role gewaehrt keine Rechte. Identitaet und Verknuepfungen verwenden IDs. Discord verwendet bei Anlage profile.username statt global_name. Lokale Namen werden beim Verknuepfen nicht ueberschrieben.
+
+## Standard-Rückleitungen und Link-Laufzeiten
+
+Die erste Origin in `CORS_ORIGINS` ist die primäre Webseite, in Produktion
+`https://www.mueller-it-mkk.de`. Für ausgelassene Redirect-Felder ergänzt der
+Backend-Hook diese Standardwerte; ausdrücklich gesendete URLs prüft weiterhin
+Better Auth gegen seine Trusted Origins:
+
+| Aufruf                            | Optionales Feld    | Standard unter der primären Origin |
+| --------------------------------- | ------------------ | ---------------------------------- |
+| Registrierung / Verifikationsmail | `callbackURL`      | `/auth/verified`                   |
+| Reset-Anforderung                 | `redirectTo`       | `/reset-password`                  |
+| Discord-Login                     | `callbackURL`      | `/auth/callback`                   |
+| Discord-Verknüpfung               | `callbackURL`      | `/settings/accounts`               |
+| Discord-Login / Verknüpfung       | `errorCallbackURL` | `/auth/error`                      |
+
+Das Frontend muss diese Seiten bereitstellen. Der OAuth-Callback auf der API
+ist davon getrennt: **`https://api.mueller-it-mkk.de/games/api/v1/auth/callback/discord`**.
+Er entspricht exakt der vom Betreiber registrierten URI. Die bekannte
+Discord-Client-ID ist `1560384435231391840`; der tatsächliche Wert wird wie das
+Secret ausschließlich aus der Serverumgebung gelesen. Keine Client-ID ist im
+Provider-Code hinterlegt. Lokale Callback-URIs müssen separat in Discord
+registriert werden; deren Existenz wird hier nicht vorausgesetzt.
+
+Verifikationslinks gelten **3600 Sekunden**, Passwortreset-Links **900 Sekunden**.
+Better Auth erzeugt und prüft die Tokens. Reset-Tokens werden bei Benutzung
+verbraucht; abgelaufene Tokens werden abgewiesen. Eine E-Mail-Verifikation ist
+kein automatischer Login; danach erneut anmelden.
+
+Discord fordert ausschließlich `identify` und `email` an. Zusätzliche Scopes
+und nicht leere `additionalParams` werden mit 400 `OAUTH_OPTIONS_NOT_ALLOWED`
+abgewiesen. Für neue Discord-Identitäten ist ebenfalls eine verifizierte
+E-Mail erforderlich: Bei ungeprüfter Provider-E-Mail wird kein Login-Cookie
+ausgestellt, eine Verifikationsmail verschickt und mit `email_not_verified`
+zurückgeleitet. Konto/Providerkonto können dabei bereits angelegt sein.
+Nach erfolgreicher lokaler Verifikation kann der Benutzer Discord erneut
+aufrufen. Diese Prüfung nutzt Better Auths offizielle Provider-Option.
 
 ## User, Session und Rollen
 
@@ -46,8 +88,6 @@ Beispiel für GET `/get-session` (optionale Felder können null sein oder fehlen
     "email": "alex@example.com",
     "emailVerified": true,
     "image": null,
-    "username": "alex_1",
-    "displayUsername": "alex_1",
     "role": "USER",
     "createdAt": "2026-10-15T10:00:00.000Z",
     "updatedAt": "2026-10-15T10:00:00.000Z"
@@ -67,7 +107,135 @@ Beispiel für GET `/get-session` (optionale Felder können null sein oder fehlen
 
 Better Auth liefert in seinen Standardantworten auch Session-Tokens. Sie sind sensible Zugangsdaten: nicht loggen, nicht in localStorage/sessionStorage speichern und nicht als eigene Bearer-Authentifizierung verwenden. Das Frontend verwendet ausschließlich die Browser-Cookies. Passwortfelder, bisherige `passwordHash`-Werte und Provider-Tokens werden nicht an das Frontend ausgegeben.
 
-Neue Benutzer erhalten `USER`, auch über Discord. Discord-only-Benutzer können `username: null` haben; nach dem ersten Login über `/update-user` einen eindeutigen Namen wählen. Rollen sind `USER` und `ADMIN`. Rollenanzeigen im Frontend dienen ausschließlich der Darstellung. Globaler `SessionGuard` prüft die Datenbank-Session; `RolesGuard` prüft die aktuelle Datenbankrolle bei jedem Aufruf. Neue administrative Nest-Handler verwenden `@Roles(Role.ADMIN)` und dürfen kein `@Public()`/`@AgentRoute()` erhalten. Schreibende geschützte Nest-Endpunkte verlangen zusätzlich eine exakt erlaubte `Origin`. Agent-Schlüssel bleiben separat; öffentliche Gameserver-REST- und SSE-Routen bleiben ohne Anmeldung erreichbar.
+Neue Benutzer erhalten `USER`, auch über Discord und unabhängig von eingesendeten
+Rollen oder Provider-Profilfeldern. Discord-only-Benutzer verwenden ebenfalls `name`; nach dem ersten Login über `/update-user` einen eindeutigen Namen wählen.
+Die plattformweiten Rollen sind `USER`, `MAINTAINER` und `ADMIN`. Rollenanzeigen
+im Frontend dienen ausschließlich der Darstellung. Der globale `SessionGuard`
+prüft Session, bestehendes Konto und bestätigte E-Mail; `PermissionsGuard`
+und `RolesGuard` prüfen die aktuelle Datenbankrolle bei jedem Aufruf. Neue
+Verwaltungsrouten erhalten passende `@RequirePermissions(...)` oder
+`@ManageService(...)` und niemals `@Public()`/`@AgentRoute()`. Klassen- und
+Methodenberechtigungen werden gemeinsam verlangt. Schreibende geschützte
+Nest-Endpunkte verlangen eine exakt erlaubte Origin. Agent-Schlüssel bleiben
+separat; öffentliche Gameserver-REST- und SSE-Routen bleiben ohne Anmeldung erreichbar.
+
+## Plattform-RBAC und Vorbereitung des Admin-Bereichs
+
+Die folgende Matrix ist zentral in `src/authorization/permissions.ts` hinterlegt.
+ADMIN besitzt alle dort definierten Berechtigungen; MAINTAINER hat ausdrücklich
+keine Benutzer-, Rollen- oder globale Sicherheitsverwaltung.
+
+| Berechtigung                                         | USER | MAINTAINER                | ADMIN |
+| ---------------------------------------------------- | ---- | ------------------------- | ----- |
+| `profile:read`, `profile:update` (eigenes Profil)    | ja   | ja                        | ja    |
+| `services:use` (bereits freigegebene Dienste)        | ja   | ja                        | ja    |
+| `content:manage` (technische Inhalte)                | nein | ja                        | ja    |
+| `services:manage`                                    | nein | nur explizite Service-IDs | alle  |
+| `users:read`, `users:roles:write`, `security:manage` | nein | nein                      | ja    |
+
+`MAINTAINER_MANAGED_SERVICES` enthält exakte, komma-separierte Service-IDs;
+leer bedeutet keine freigegebene Dienstverwaltung. Die Liste gilt für alle
+MAINTAINER dieser Installation und erlaubt keine Wildcards. Künftige
+Dienstverwaltungsrouten verwenden `@ManageService('serviceId')` und lesen die
+Service-ID aus dem gleichnamigen Routenparameter. Eine unbeschränkte
+`services:manage`-Route wird für MAINTAINER abgewiesen. ADMIN benötigt keine
+Service-Liste. Service-IDs sind plattformweite IDs, nicht automatisch
+Gameserver-Typen. Es werden hier keine neuen Gameserver-Steuerfunktionen freigegeben.
+
+Die Profilberechtigungen erlauben nur das eigene Profil; Handler müssen
+die eigene `req.user.id` verwenden. `services:use` ersetzt nicht die Prüfung,
+ob der konkrete Dienst veröffentlicht/freigegeben ist. `content:manage` ist
+für technische Inhalte, nicht für globale Sicherheitseinstellungen gedacht.
+Die bisherigen `@Roles(...)`-Dekoratoren bleiben möglich; ADMIN erfüllt dabei
+alle Rollenlisten, andere Rollen müssen ausdrücklich enthalten sein.
+
+### Zusätzliche Nest-Endpunkte
+
+Basis hierfür ist **`https://api.mueller-it-mkk.de/games/api/v1`**, nicht die
+Better-Auth-Basis mit zusätzlichem `/auth`. Keine zweite Session oder Anmeldung.
+Browser verwenden dieselben Cookies und `credentials: 'include'`.
+
+| Methode | Pfad                           | Zugriff / Request                                           | Response                                                                                                 |
+| ------- | ------------------------------ | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| GET     | `/account/permissions`         | jeder angemeldete, verifizierte Benutzer                    | 200 `{ userId, role, permissions: string[], serviceManagement: { all: boolean, serviceIds: string[] } }` |
+| GET     | `/admin/users?page=1&limit=25` | ADMIN, `users:read`; page 1–1000000, limit 1–100            | 200 `{ items: AdminUser[], total, page, limit }`                                                         |
+| POST    | `/admin/users/:userId/role`    | ADMIN, `users:roles:write`; JSON `{ "role": "MAINTAINER" }` | 200 `{ "user": AdminUser }`                                                                              |
+
+`AdminUser` enthält nur `id`, `name`, `email`, `role`,
+`emailVerified`, `createdAt`. Keine Credentials, Hashes oder Sessions.
+Sortierung der Übersicht: createdAt absteigend, bei Gleichstand id aufsteigend.
+Rollenwerte sind exakt `USER`, `MAINTAINER`, `ADMIN`, jeweils ein Wert, keine Liste.
+Unbekannte Felder/Rollen und ungültige Pagination liefern 400. Alle drei
+Antworten enthalten `Cache-Control: no-store`. Die regulären Nest-Rate-Limits gelten.
+
+Nest-Fehler bleiben `{ "statusCode": number, "message": string }`:
+
+- 401 `Invalid or expired session`: keine gültige Session oder Konto nicht verifiziert.
+- 403 `Insufficient permissions`: Rolle/Berechtigung fehlt; `Trusted Origin required`
+  für schreibende Requests ohne erlaubte Origin.
+- 404 `User ID not found`: unbekanntes Ziel bei autorisierter Rollenänderung.
+- 409 `Cannot remove the last active ADMIN`: letzter aktiver Admin würde herabgestuft.
+- 409 `Verify the user email before granting ADMIN`: Zielkonto ist noch unbestätigt.
+- 409 `Role change conflict; retry the request`: konkurrierender SQLite-Schreibzugriff.
+
+„Aktiv“ bedeutet hier: Konto existiert, E-Mail bestätigt, Rolle ADMIN; nicht
+„gerade eingeloggt“. Ein Ban-/Deaktivierungsmodell und Löschendpunkte werden
+nicht eingeführt. Wird das später ergänzt, muss dieselbe Last-Admin-Invariante
+auch für Sperren/Löschen gelten. Der letzte aktive Admin kann sich nicht selbst
+herabstufen. Bei mehreren aktiven Admins ist eine eigene Herabstufung möglich.
+Anforderung derselben Rolle ist ein unverändernder Erfolg. Rollenänderungen
+werden mit Akteur-ID, Ziel-ID, alter/neuer Rolle, Quelle und Zeitpunkt als
+`RoleChange` in derselben Transaktion gespeichert. Unverändernde Requests werden
+nicht als Änderung protokolliert. Es werden keine Secrets ins Audit geschrieben.
+
+Vor jeder Änderung erwirbt der Service eine SQLite-Schreibsperre und prüft
+die Administratorberechtigung des Akteurs erneut innerhalb derselben Transaktion.
+Damit kann weder eine parallele Herabstufung noch ein zweiter Request die
+Last-Admin-Prüfung umgehen. Bestehende Sessions bleiben erhalten; ihre Rechte
+richten sich bei der nächsten Anfrage nach der neuen Rolle, auch bei get-session.
+
+Das spätere Windows-98-Frontend lädt nach get-session zusätzlich
+`/account/permissions`, zeigt Navigation/Bedienelemente anhand dieser Antwort
+und fragt die paginierte Benutzerübersicht nur als ADMIN ab. Vor jeder
+Rollenänderung Ziel-ID und neue Rolle anzeigen, nach Erfolg Liste und eigene
+Berechtigungen neu laden. 401/403/409 sinnvoll behandeln und einen 409-Konflikt
+nicht unbesehen wiederholen. Diese Darstellung ersetzt niemals die Guards.
+Keine Frontend-Dateien wurden implementiert oder verändert.
+
+### Einmaliger Bootstrap des persönlichen Accounts
+
+Zuerst regulär registrieren und E-Mail bestätigen. Die eindeutige ID aus
+`get-session.user.id` auf einem vertrauenswürdigen Weg selbst prüfen. Nur ein
+autorisierter Betreiber mit lokalem Shell-/Docker-Zugriff darf anschließend
+`npm run admin:bootstrap -- <user-id>` bzw.
+`node dist/cli.js admin <user-id>` ausführen. Benutzername und E-Mail werden
+nicht zur Auswahl verwendet; keine öffentlichen Bootstrap-Endpunkte,
+fest codierten Accounts oder automatischen E-Mail-Regeln.
+
+Die Vergabe, das Audit und der dauerhafte Einmalmarker `RbacState` werden
+gemeinsam transaktional gespeichert. Ungültige/fehlende IDs oder unbestätigte
+Konten verbrauchen den Bootstrap nicht. Sobald er erfolgreich war oder bei der
+Migration bereits irgendein ADMIN vorhanden ist (auch ein unbestätigter
+Legacy-Admin), bleibt er dauerhaft geschlossen – selbst wenn später jemand
+außerhalb der API alle Admins entfernt. Keine automatische Wiederöffnung.
+Wiederherstellung bei ausgesperrten Admins erfordert einen separat geprüften
+Betreiberprozess, nicht das Löschen des Markers. Hier wurde kein persönliches
+Konto befördert; seine ID wurde nicht vorausgesetzt.
+
+### Migration und Proxy-Zugriff für RBAC
+
+`202610150002_platform_rbac` ist additiv: SQLite speichert die Rolle als TEXT;
+für MAINTAINER muss keine User-Tabelle neu aufgebaut werden. Vorhandene
+USER-/ADMIN-Werte, Benutzer, Credentials, Sessions und Gameserver-Daten bleiben
+erhalten. Hinzu kommen nur `RbacState` und `RoleChange`. Frühere Migrationen
+werden nicht verändert. Nach Schemaänderung Prisma Client neu generieren.
+
+Die neuen Nest-Routen werden **nicht** durch die bestehende Auth-Allowlist
+freigeschaltet. Für einen späteren Admin-Bereich müssen GET `/games/api/v1/account/permissions`,
+GET `/games/api/v1/admin/users`, POST `/games/api/v1/admin/users/*/role` sowie
+die dazugehörigen OPTIONS-Anfragen in einem separaten Infrastrukturauftrag
+geprüft werden. Keine Wildcard für die gesamte API und keine aktuelle
+Caddy-Änderung. Die Rollenprüfung gilt unabhängig vom Proxy.
 
 ## Cookies und Wiederherstellung
 
@@ -92,28 +260,42 @@ Neue Benutzer erhalten `USER`, auch über Discord. Discord-only-Benutzer können
 
 Better-Auth-Fehler normalerweise `{ "code": "…", "message": "…" }`; HTTP-Status prüfen, `code` für UI-Übersetzungen nutzen. Bibliotheksvalidierungsfehler können zusätzliche Details enthalten; unbekannte Codes mit generischem Fehlertext behandeln. Keine internen Fehlermeldungen, Request-Bodys oder vollständigen Callback-URLs protokollieren.
 
-| HTTP | Code                                                            | Englischer Bibliothekstext / Bedeutung                                                 |
-| ---- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| 400  | `USERNAME_REQUIRED`                                             | `Username is required`                                                                 |
-| 400  | `INVALID_USERNAME` / `USERNAME_TOO_SHORT` / `USERNAME_TOO_LONG` | `Username is invalid` / `Username is too short` / `Username is too long`               |
-| 400  | `USERNAME_IS_ALREADY_TAKEN`                                     | `Username is already taken. Please try another.`                                       |
-| 400  | `PASSWORD_TOO_SHORT` / `PASSWORD_TOO_LONG`                      | `Password too short` / `Password too long`                                             |
-| 400  | `INVALID_TOKEN` / `TOKEN_EXPIRED`                               | `Invalid token` / `Token expired`; Reset/Verifizierung erneut anfordern                |
-| 400  | `FIELD_NOT_ALLOWED`                                             | `Field not allowed to be set`, etwa Rollenänderung                                     |
-| 400  | `FAILED_TO_UNLINK_LAST_ACCOUNT`                                 | `You can't unlink your last account`                                                   |
-| 401  | `INVALID_EMAIL_OR_PASSWORD`                                     | `Invalid email or password`                                                            |
-| 401  | `SESSION_EXPIRED` / `SESSION_NOT_FRESH`                         | Session fehlt/abgelaufen bzw. erneute Anmeldung erforderlich                           |
-| 403  | `EMAIL_NOT_VERIFIED`                                            | `Email not verified`                                                                   |
-| 403  | `INVALID_ORIGIN` / `MISSING_OR_NULL_ORIGIN`                     | `Invalid origin` / `Missing or null Origin`                                            |
-| 403  | `INVALID_CALLBACK_URL` / `INVALID_REDIRECT_URL`                 | `Invalid callbackURL` / `Invalid redirectURL`                                          |
-| 404  | `PROVIDER_NOT_FOUND`                                            | `Provider not found`, Discord nicht konfiguriert                                       |
-| 422  | `FAILED_TO_CREATE_USER`                                         | `Failed to create user`                                                                |
-| 429  | ggf. kein `code`                                                | Rate-Limit; `X-Retry-After` (Sekunden) respektieren, keine automatische Login-Schleife |
-| 400  | `INVALID_JSON`                                                  | `Invalid JSON` (HTTP-Adapter)                                                          |
-| 413  | `PAYLOAD_TOO_LARGE`                                             | `Request body too large` (HTTP-Adapter)                                                |
-| 500  | `AUTH_FAILED`                                                   | `Authentication request failed` (unbekannte interne Fehler einschließlich Mailversand) |
+| HTTP | Code                                                            | Englischer Bibliothekstext / Bedeutung                                                             |
+| ---- | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 400  | `USERNAME_REQUIRED`                                             | `Username is required`                                                                             |
+| 400  | `INVALID_USERNAME` / `USERNAME_TOO_SHORT` / `USERNAME_TOO_LONG` | `Username is invalid` / `Username is too short` / `Username is too long`                           |
+| 400  | `USERNAME_IS_ALREADY_TAKEN`                                     | `Username is already taken. Please try another.`                                                   |
+| 400  | `PASSWORD_TOO_SHORT` / `PASSWORD_TOO_LONG`                      | `Password too short` / `Password too long`                                                         |
+| 400  | `INVALID_TOKEN` / `TOKEN_EXPIRED`                               | `Invalid token` / `Token expired`; Reset/Verifizierung erneut anfordern                            |
+| 400  | `FIELD_NOT_ALLOWED`                                             | `Field not allowed to be set`, etwa Rollenänderung                                                 |
+| 400  | `FAILED_TO_UNLINK_LAST_ACCOUNT`                                 | `You can't unlink your last account`                                                               |
+| 401  | `INVALID_EMAIL_OR_PASSWORD`                                     | `Invalid email or password`                                                                        |
+| 401  | `SESSION_EXPIRED` / `SESSION_NOT_FRESH`                         | Session fehlt/abgelaufen bzw. erneute Anmeldung erforderlich                                       |
+| 403  | `EMAIL_NOT_VERIFIED`                                            | `Email not verified`                                                                               |
+| 403  | `INVALID_ORIGIN` / `MISSING_OR_NULL_ORIGIN`                     | `Invalid origin` / `Missing or null Origin`                                                        |
+| 403  | `INVALID_CALLBACK_URL` / `INVALID_REDIRECT_URL`                 | `Invalid callbackURL` / `Invalid redirectURL`                                                      |
+| 404  | `PROVIDER_NOT_FOUND`                                            | `Provider not found`, Discord nicht konfiguriert                                                   |
+| 422  | `FAILED_TO_CREATE_USER`                                         | `Failed to create user`                                                                            |
+| 429  | ggf. kein `code`                                                | Rate-Limit; `X-Retry-After` (Sekunden) respektieren, keine automatische Login-Schleife             |
+| 400  | `INVALID_JSON`                                                  | `Invalid JSON` (HTTP-Adapter)                                                                      |
+| 413  | `PAYLOAD_TOO_LARGE`                                             | `Request body too large` (HTTP-Adapter)                                                            |
+| 500  | `AUTH_FAILED`                                                   | `Authentication request failed` (unbekannte interne Fehler)                                        |
+| 503  | `EMAIL_DELIVERY_FAILED`                                         | `Email delivery failed. Please try again later.`; SMTP nicht verfügbar, Auth-Zustand erneut prüfen |
+| 400  | `OAUTH_OPTIONS_NOT_ALLOWED`                                     | `Custom OAuth permissions are not allowed`                                                         |
 
 OAuth- und Mail-Link-Endpunkte melden Fehler teilweise als 302 mit Query-Parameter statt JSON. Andere Nest-Endpunkte behalten `{ "statusCode": 401, "message": "Invalid or expired session" }` bzw. 403 `Insufficient permissions` oder `Trusted Origin required`. `/get-session` ohne gültige Session ist **kein 401-Fehler**.
+
+OAuth-Fehlerparameter enthalten u.a. `account_not_linked` (erst im bestehenden
+Konto anmelden und explizit verknüpfen), `email_does_not_match` (abweichende
+E-Mail), `unable_to_link_account` (etwa ungeprüfte Provider-E-Mail),
+`account_already_linked_to_different_user`, `email_not_found` und
+`email_not_verified`. Nie anhand eines Fehlers automatisch andere Konten
+zusammenführen. Bei ungültigem/verbrauchtem State Login neu starten.
+SMTP-503 ist kein Nachweis dafür, dass die Registrierung zurückgerollt wurde;
+ein unbestätigtes Konto kann bereits bestehen. Nach Behebung erneut eine
+Verifikationsmail anfordern. Die UI übersetzt Codes und gibt keine internen
+SMTP-Details aus. Logs enthalten nur `auth_email_delivery_failed` und den
+Mailtyp, keine Empfänger, Links oder Provider-/SMTP-Zugangsdaten.
 
 Rate-Limits werden durch Better Auth in SQLite gespeichert: je IP und Pfad 5/Minute für Registrierung, E-Mail-Login und Social-Login, 3/Minute für Reset-Anforderung und Verifikationsmail; sonst 60/Minute, zusätzliche Bibliotheks-Spezialregeln bleiben aktiv. Nest-Throttling schützt weiter die normalen Controller. Ein interner IP-Header wird aus Express `req.ip` überschrieben; untrusted Clientwerte werden verworfen. Caddy/Playit müssen eine vertrauenswürdige Client-IP-Kette bereitstellen, sonst teilen sich Clients möglicherweise ein Limit.
 
@@ -130,7 +312,7 @@ const response = await fetch(`${authBase}/get-session`, {
 const current = await response.json(); // { session, user } | null
 ```
 
-Optional offizieller `better-auth/react`-Client **1.7.10** mit `baseURL: 'https://api.mueller-it-mkk.de'`, `basePath: '/games/api/v1/auth'`, `fetchOptions: { credentials: 'include' }` und `usernameClient()` aus `better-auth/client/plugins`. Der zusätzliche Rollenwert muss im Frontendtyp als `'USER' | 'ADMIN'` ergänzt werden; keine Backend-Quelldateien ins separate Frontend importieren. Die oben dokumentierten HTTP-Bodys bleiben maßgeblich. Auch E-Mail-Registrierung braucht `name` zusätzlich zu `username`.
+Optional offizieller `better-auth/react`-Client **1.7.10** mit `baseURL: 'https://api.mueller-it-mkk.de'`, `basePath: '/games/api/v1/auth'`, `fetchOptions: { credentials: 'include' }`. Der zusätzliche Rollenwert muss im Frontendtyp als `'USER' | 'MAINTAINER' | 'ADMIN'` ergänzt werden; keine Backend-Quelldateien ins separate Frontend importieren. Die oben dokumentierten HTTP-Bodys bleiben maßgeblich. E-Mail-Registrierung braucht den Benutzernamen in `name`. Plattform-Admin-Aufrufe erfolgen als normale credentialed Fetches gegen die Nest-Basis, nicht über einen Better-Auth-adminClient.
 
 Lokaler Vorschlag, passend zur bisherigen Frontendadresse:
 
@@ -147,6 +329,20 @@ Frontend `http://localhost:3000`, lokale Auth-Basis `http://localhost:3001/api/v
 
 Für Registrierung/Reset ist auch lokal ein SMTP-Testpostfach nötig, z.B. ein bereits vorhandener lokaler SMTP-Dienst; das Projekt startet keinen zusätzlichen Container. Ohne SMTP sind diese Flows nicht nutzbar. Fehlgeschlagener Mailversand kann ein bereits angelegtes unbestätigtes Konto hinterlassen; nach Behebung `/send-verification-email` verwenden. Tests ersetzen nur den Mailtransport und prüfen die echten generierten Mail-Links.
 
+Die E-Mails verwenden das zentrale Müller-IT-MKK-Branding und den festen Absender
+`Müller IT MKK <support@mueller-it-mkk.de>`. `SMTP_FROM` wird nicht mehr verwendet.
+Die Template-Architektur, Logo-Einbettung und lokale Vorschau ohne SMTP sind in
+[AUTH_EMAIL_TEMPLATES.md](AUTH_EMAIL_TEMPLATES.md) dokumentiert.
+
+Mailbox.org ist als Anbieter vorgesehen: `SMTP_HOST=smtp.mailbox.org`,
+`SMTP_PORT=587`, `SMTP_SECURE=false` (STARTTLS). Der Betreiber hat STARTTLS,
+Authentifizierung und die Absenderannahme bereits geprüft; das ist keine hier
+durchgeführte Live-Zustellprüfung. Die vorhandenen geschützten Zugangsdaten
+weiterverwenden. Bei 2FA ist nach Anbieterangabe ein Anwendungspasswort nötig.
+Der Transport prüft TLS-Zertifikate, verlangt in Produktion TLS und begrenzt
+Verbindungs-/Begrüßungszeit auf 10 Sekunden sowie Socket-Inaktivität auf 20
+Sekunden. SMTP-Debug- und Protokoll-Logging sind deaktiviert.
+
 ## Konfiguration und Infrastruktur
 
 | Variable                                     | Verwendung                                                                                                                                                                                              |
@@ -160,13 +356,31 @@ Für Registrierung/Reset ist auch lokal ein SMTP-Testpostfach nötig, z.B. ein b
 | `SMTP_HOST`, `SMTP_PORT`                     | Mailserver, Port standardmäßig 587                                                                                                                                                                      |
 | `SMTP_SECURE`                                | `false` für STARTTLS/587, `true` für implizites TLS/465; Produktion verlangt TLS                                                                                                                        |
 | `SMTP_USER`, `SMTP_PASSWORD`                 | Beide setzen oder bei autorisiertem Relay beide leer lassen                                                                                                                                             |
-| `SMTP_FROM`                                  | Autorisierte Absenderadresse, z.B. `Gameserver Dashboard <noreply@mueller-it-mkk.de>`                                                                                                                   |
 | `NODE_ENV`, `PORT`                           | Produktion `production`, interner Port 3000                                                                                                                                                             |
 | `TRUST_PROXY_HOPS`                           | Nur tatsächliche vertrauenswürdige HTTP-Hops zählen; bei direkt vorgeschaltetem Caddy in der Regel 1; Playit-Headerführung vor Ort prüfen                                                               |
 
-Produktion startet nicht ohne HTTPS-Auth-Origin, HTTPS-Frontend-Origins, gültiges Secret und SMTP_HOST/SMTP_FROM. Discord bleibt optional; für das beauftragte vollständige Produkt muss der Betreiber es konfigurieren. Keine Zugangsdaten werden mitgeliefert. `.env` ist ignoriert. DB/Backups enthalten sensible Sitzungsdaten und benötigen die bestehenden Dateirechte.
+Produktion startet nicht ohne HTTPS-Auth-Origin, HTTPS-Frontend-Origins, gültiges Secret und SMTP_HOST. Discord bleibt optional; für das beauftragte vollständige Produkt muss der Betreiber es konfigurieren. Keine Zugangsdaten werden mitgeliefert. `.env` ist ignoriert. DB/Backups enthalten sensible Sitzungsdaten und benötigen die bestehenden Dateirechte.
 
-Offen vor einer freigegebenen Inbetriebnahme: SMTP-Zugang und tatsächliche Zustellung/SPF/DKIM/DMARC, Discord-App mit beiden passenden Redirect-URIs, produktive Umgebungsvariablen, verifizierte Proxy-IP-Kette, Allowlist-Erweiterung, Offline-Backup und Prüfung auf einer Kopie der echten SQLite-Datenbank. Kein Deployment wurde durchgeführt.
+Vom Betreiber bestätigt: mailbox.org-STARTTLS, SMTP-Authentifizierung und
+Absenderannahme; Discord-App und produktive Callback-Registrierung sind vorhanden.
+Offen bleiben die Anwendung der geschützten Servervariablen auf den später
+freigegebenen Quellstand, echte Zustellung/SPF/DKIM/DMARC und Browser-Abnahme,
+die tatsächliche Compose-/Proxy-Erreichbarkeit samt vertrauenswürdiger IP-Kette,
+Erreichbarkeit der benötigten Auth-Allowlist sowie Offline-Backup und Probe auf
+einer Datenbankkopie. Eine lokale Discord-URI ist nur für lokale OAuth-Tests zu
+registrieren. Fehlende Caddy-Freigaben benötigen einen separaten Auftrag;
+hier wurde weder Caddy verändert noch deployt.
+
+`AUTH_EMAIL_LOGO_URL` ist optional: eine öffentlich erreichbare HTTPS-URL des
+Original-Logos, ohne Zugangsdaten oder Fragment. Wenn gesetzt, verwenden die
+E-Mails diese URL ohne Anhang; das Backend lädt das Bild nicht herunter.
+Ohne nachweislich veröffentlichte URL bleibt die Variable leer und das Original
+wird per CID eingebettet. Es wurde keine Logo-URL veröffentlicht oder geraten.
+
+Produktionsvorbereitung und Übergabe:
+[Änderungsübersicht und vollständige Variablenliste](AUTH_PRODUCTION_READINESS.md),
+[OpenClaw-Deployment-Anleitung](OPENCLAW_AUTH_DEPLOYMENT.md),
+[Abnahme-Testplan](AUTH_TEST_PLAN.md). Keine Frontend-Dateien wurden geändert.
 
 ## Caddy-Allowlist: ausschließlich als manueller Änderungsvorschlag
 
@@ -203,9 +417,9 @@ Matcher vor dem vorhandenen Default-Deny verwenden; `handle`, kein `handle_path`
 
 ## Migration und Administratoren
 
-Die neue Migration verändert keine Gameserver-, Snapshot-, Event-, Agent-, Metric- oder Player-Tabelle. `User` wird innerhalb der vom Runner verwendeten Transaktion erweitert/neu aufgebaut; IDs, vorhandene Hashes und ADMIN bleiben erhalten. Die frühere Rolle MODERATOR wird zu USER, da der neue Vertrag nur USER/ADMIN vorsieht. Legacy-Konten erhalten eine eindeutige nicht zustellbare `legacy-<hex(id)>@users.invalid`-Adresse, unbestätigt. Alte JWTs und alte Passwort-Logins werden nicht mehr akzeptiert. Vor Deployment deshalb eine mögliche Anmeldeunterbrechung einplanen.
+Die frühere Auth-Migration `202610150001_better_auth` verändert keine Gameserver-, Snapshot-, Event-, Agent-, Metric- oder Player-Tabelle. `User` wird dabei innerhalb der Transaktion erweitert/neu aufgebaut; IDs, vorhandene Hashes und ADMIN bleiben erhalten. Die damalige Rolle MODERATOR wurde zu USER; diese bereits bestehende Migration wird nicht nachträglich geändert. Die neue Plattform-RBAC-Migration ergänzt MAINTAINER, weist aber niemandem automatisch diese Rolle zu. Legacy-Konten erhalten beim ursprünglichen Auth-Upgrade eine eindeutige nicht zustellbare `legacy-<hex(id)>@users.invalid`-Adresse, unbestätigt. Alte JWTs und alte Passwort-Logins werden nicht mehr akzeptiert. Vor einem Upgrade vom ursprünglichen JWT-Stand deshalb eine mögliche Anmeldeunterbrechung einplanen.
 
-Bestehende Identitäten kontrolliert übernehmen: Betreiber prüft Eigentum, ordnet offline über eine geprüfte Prisma-Operation eine echte eindeutige E-Mail zu (`emailVerified` bleibt zunächst false), lässt die Person `/send-verification-email` und den Mail-Link benutzen und anschließend `/request-password-reset` ausführen. Better Auth legt dabei das Credential-Konto an und erzeugt seinen eigenen Hash. Keine automatische Hash-Konvertierung, kein Teilen/Übertragen der bisherigen Klartextpasswörter. Der alte Hash bleibt nur zur verlustfreien Migration gespeichert und wird nicht zur Anmeldung benutzt; nach bestätigter Übernahme kann der Betreiber ihn gezielt auf null setzen. Ohne vorhandene ADMIN-Rolle zunächst regulär registrieren und E-Mail bestätigen, dann lokal `npm run admin:bootstrap -- <username>` bzw. `node dist/cli.js admin <username>` ausführen. Dieser Befehl befördert nur einen bereits verifizierten Benutzer und verweigert sich, wenn ein ADMIN vorhanden ist. Öffentliche Rollenvergabe ist ausgeschlossen.
+Bestehende Identitäten kontrolliert übernehmen: Betreiber prüft Eigentum, ordnet offline über eine geprüfte Prisma-Operation eine echte eindeutige E-Mail zu (`emailVerified` bleibt zunächst false), lässt die Person `/send-verification-email` und den Mail-Link benutzen und anschließend `/request-password-reset` ausführen. Better Auth legt dabei das Credential-Konto an und erzeugt seinen eigenen Hash. Keine automatische Hash-Konvertierung, kein Teilen/Übertragen der bisherigen Klartextpasswörter. Der alte Hash bleibt nur zur verlustfreien Migration gespeichert und wird nicht zur Anmeldung benutzt; nach bestätigter Übernahme kann der Betreiber ihn gezielt auf null setzen. Die Vergabe des ersten ADMIN erfolgt ausschließlich über den oben beschriebenen einmaligen Bootstrap anhand der eindeutigen Benutzer-ID. Der frühere username-basierte Befehl ist ersetzt; öffentliche Rollenvergabe ist ausgeschlossen.
 
 Vor jeder Migration Offline-Backup erstellen und auf Kopie prüfen. Lokal `npm run db:generate`, `npm run db:migrate` (Prisma deploy); bestehender Container-Runner `node scripts/migrate.cjs` unterstützt diese einfache transaktionale Migration und überprüft Checksummen. Die Initialmigration wurde nicht verändert. Migrationstest prüft vorhandene Benutzer/Historie, wiederholten Runner-Start, Prisma migrate deploy, Schema-Diff und Fremdschlüssel. Weitere HTTP-Tests prüfen Registrierung, Verifikation, Login, Cookie-Wiederherstellung, Rollen, Ablauf, Logout, Reset, Origin/Redirect-Abweisung, Limits, Discord-State und Produktions-Cookieattribute sowie die bestehenden REST-/SSE-Funktionen. Ein echter Discord-Callback und SMTP-Zustellung erfordern die Infrastruktur und sind lokal nicht als Live-Test ausgeführt.
 
@@ -215,7 +429,6 @@ Vor jeder Migration Offline-Backup erstellen und auf Kopie prüfen. Lokal `npm r
 - [Prisma-Adapter, einschließlich Prisma 6](https://better-auth.com/docs/adapters/prisma)
 - [E-Mail und Passwort](https://better-auth.com/docs/authentication/email-password)
 - [Discord](https://better-auth.com/docs/authentication/discord)
-- [Username-Plugin](https://better-auth.com/docs/plugins/username)
 - [Caddy-Body-Limit](https://caddyserver.com/docs/caddyfile/directives/request_body)
 - [Konten und Verknüpfung](https://better-auth.com/docs/concepts/users-accounts)
 

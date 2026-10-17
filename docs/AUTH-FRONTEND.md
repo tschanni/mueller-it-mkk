@@ -28,9 +28,9 @@ Ungueltige Konfiguration deaktiviert die Anbindung.
   Session separat pruefen, keine Tokens aus dem Login-Body uebernehmen.
 - Anzeige aus `user.name`; stabile Benutzer-ID im Konto. Name nicht editierbar.
   Keine Profilbild-Aenderung: Backend sperrt saemtliche update-user-Aufrufe.
-- Sechs optionale Kontakte nur im eigenen angemeldeten, verifizierten Konto.
+- Neun optionale Kontakte nur im eigenen angemeldeten, verifizierten Konto.
   Lesen, Bearbeiten, Speichern, Feldvalidierung und Wiederholen nach Fehlern.
-  Leere Werte werden durch null geloescht; weitere Backend-Kontakte unberuehrt.
+  Leere Werte werden durch null geloescht; Land, Telefon und Kontakt-E-Mail sind ebenfalls optional.
 - Discord-Verknuepfung nur explizit bei bestaetigter E-Mail; letzte Loginmethode
   nicht entfernbar, erneute Anmeldung bei unfrischer Session moeglich.
 - Registrierung, Verifikationsmail und Reset geben keine Kontoexistenz preis.

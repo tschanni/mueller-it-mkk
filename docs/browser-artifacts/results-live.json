@@ -1,0 +1,259 @@
+{
+  "liveRequested": true,
+  "checks": [
+    "browser registration sends only confirmed fields",
+    "browser registration preserves name",
+    "user.name and stable ID displayed",
+    "no name or image editor",
+    "profile save preserves ZIP and clears empty fields",
+    "reload restores session and contacts",
+    "503 does not log user out",
+    "network does not log user out",
+    "320px account window stays entirely inside the viewport",
+    "401 removes contact fields",
+    "logout removes identity and contacts",
+    "Discord requests provider URL and attempts top-level navigation without contacting provider",
+    "no interception errors"
+  ],
+  "live": [
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "transportError": true
+    },
+    {
+      "path": "/games/api/v1/me/profile",
+      "status": 401,
+      "cacheControl": "no-store",
+      "anonymous": false
+    },
+    {
+      "path": "/games/api/v1/me/profile",
+      "method": "OPTIONS",
+      "transportError": true
+    },
+    {
+      "path": "/games/api/v1/auth/sign-up/email",
+      "method": "OPTIONS",
+      "transportError": true
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/email",
+      "method": "OPTIONS",
+      "status": 204
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/social",
+      "method": "OPTIONS",
+      "status": 204
+    },
+    {
+      "path": "/games/api/v1/auth/sign-out",
+      "method": "OPTIONS",
+      "status": 204
+    },
+    {
+      "path": "/games/api/v1/auth/send-verification-email",
+      "method": "OPTIONS",
+      "status": 204
+    }
+  ],
+  "productionWrites": 0,
+  "liveNetworkFailures": [
+    {
+      "path": "/games/api/v1/public/servers",
+      "method": "GET",
+      "error": "net::ERR_BLOCKED_BY_CLIENT.Inspector",
+      "canceled": false,
+      "cors": null
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET",
+      "error": "net::ERR_ABORTED",
+      "canceled": true,
+      "cors": null
+    },
+    {
+      "path": "/games/api/v1/me/profile",
+      "method": "OPTIONS",
+      "error": "net::ERR_ABORTED",
+      "canceled": true,
+      "cors": null
+    },
+    {
+      "path": "/games/api/v1/auth/sign-up/email",
+      "method": "OPTIONS",
+      "error": "net::ERR_ABORTED",
+      "canceled": true,
+      "cors": null
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/email",
+      "method": "OPTIONS",
+      "error": "net::ERR_ABORTED",
+      "canceled": true,
+      "cors": null
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/social",
+      "method": "OPTIONS",
+      "error": "net::ERR_ABORTED",
+      "canceled": true,
+      "cors": null
+    },
+    {
+      "path": "/games/api/v1/auth/sign-out",
+      "method": "OPTIONS",
+      "error": "net::ERR_ABORTED",
+      "canceled": true,
+      "cors": null
+    },
+    {
+      "path": "/games/api/v1/auth/send-verification-email",
+      "method": "OPTIONS",
+      "error": "net::ERR_ABORTED",
+      "canceled": true,
+      "cors": null
+    }
+  ],
+  "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+  "liveChecks": {
+    "anonymousSession": false,
+    "anonymousProfile": true
+  },
+  "livePreflightPassed": false,
+  "mockRequests": [
+    {
+      "path": "/games/api/v1/public/servers",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-up/email",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-up/email",
+      "method": "POST"
+    },
+    {
+      "path": "/games/api/v1/public/servers",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/email",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/email",
+      "method": "POST"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/me/profile",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/list-accounts",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/me/profile",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/games/api/v1/me/profile",
+      "method": "POST"
+    },
+    {
+      "path": "/games/api/v1/public/servers",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/me/profile",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/list-accounts",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/email",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/email",
+      "method": "POST"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/me/profile",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/list-accounts",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-out",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-out",
+      "method": "POST"
+    },
+    {
+      "path": "/games/api/v1/public/servers",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/social",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/social",
+      "method": "POST"
+    }
+  ]
+}

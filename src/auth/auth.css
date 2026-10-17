@@ -38,3 +38,5 @@
 .auth-dialog > fieldset, .auth-dialog > form { margin-bottom: 12px; }
 .window.auth-window { min-height: 0; min-width: min(320px, calc(100vw - 8px)); max-width: calc(100vw - 8px); max-height: calc(100dvh - 50px); overflow: auto; box-sizing: border-box; }
 @media (max-width: 420px) { .auth-fields { grid-template-columns: 1fr; gap: 4px; } .auth-fields input { margin-bottom: 8px; } }
+/* Keep existing desktop window positions from clipping account forms on resize. */
+@media (max-width: 600px) { .window.auth-window { left: 4px !important; top: 4px !important; } }

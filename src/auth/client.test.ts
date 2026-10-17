@@ -196,7 +196,7 @@ test('own profile uses the Nest API base with cookie credentials and distinct GE
   fetcher.mockResolvedValueOnce(response({ profile: null }));
   expect(await client.getProfile!(signal)).toBeNull();
   fetcher.mockResolvedValueOnce(response({ profile: rawProfile() }));
-  expect(await client.getProfile!(signal)).toEqual({ userId: 'u1', updatedAt: '2026-10-16T12:00:00.000Z', ...contactBody(emptyContact()), postalCode: '01234' });
+  expect(await client.getProfile!(signal)).toEqual({ userId: 'u1', updatedAt: '2026-10-16T12:00:00.000Z', ...contactBody(emptyContact()), postalCode: '01234', countryCode: 'DE', phone: '+49 123', contactEmail: 'contact@example.com' });
   expect(lastRequest(fetcher)).toEqual(['https://api.mueller-it-mkk.de/games/api/v1/me/profile', expect.objectContaining({ method: 'GET', credentials: 'include', cache: 'no-store' })]);
   fetcher.mockResolvedValueOnce(response(rawProfile(), 201));
   const input = { ...contactBody(emptyContact()), firstName: 'Alex', userId: 'attacker', role: 'ADMIN', countryCode: null };

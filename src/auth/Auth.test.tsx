@@ -4,7 +4,7 @@ import App from '../App';
 import { Desktop } from '../components/Desktop/Desktop';
 import { WindowManagerProvider } from '../state/WindowManagerContext';
 import { AuthProvider, useAuth } from './AuthContext';
-import { ContactInput, ContactProfile, contactBody, emptyContact } from './contactProfile';
+import { ContactInput, ContactProfile } from './contactProfile';
 import { AuthAdapter, AuthError, AuthSession, LinkedAccount, checkedRedirect, checkedSession } from './client';
 
 jest.mock('../apps/Gallery/Gallery', () => ({ Gallery: () => null }));

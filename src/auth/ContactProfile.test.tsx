@@ -25,6 +25,7 @@ function Controls() {
     <output data-testid="notice">{auth.notice?.kind}:{auth.notice?.text}</output>
     <button onClick={() => void auth.refresh()}>Session prüfen</button>
     <button onClick={() => void auth.logout()}>Logout</button>
+    <button onClick={() => void auth.listAccounts(new AbortController().signal).catch(() => undefined)}>Konten neu laden</button>
     <AccountDialog windowId="account" /></>;
 }
 function mount(client = adapter()) {
@@ -186,4 +187,34 @@ test('session expiry removes an unsaved contact draft', async () => {
   await act(async () => { jest.advanceTimersByTime(5001); });
   expect(screen.getByTestId('identity')).toHaveTextContent('anonymous');
   expect(screen.queryByDisplayValue('PRIVATE_DRAFT')).not.toBeInTheDocument();
+});
+
+
+test('additional contact fields load, validate and save through the same private endpoint', async () => {
+  const client = adapter();
+  client.getProfile.mockResolvedValue(profile('a', { ...contactBody(emptyContact()), countryCode: 'DE', phone: '+49 123', contactEmail: 'contact@example.com' }));
+  mount(client); await ready();
+  expect(screen.getByLabelText('Land (ISO-Code):')).toHaveValue('DE');
+  expect(screen.getByLabelText('Telefon:')).toHaveValue('+49 123');
+  expect(screen.getByLabelText('Kontakt-E-Mail:')).toHaveValue('contact@example.com');
+  edit('Land (ISO-Code):', 'Germany'); save();
+  expect(screen.getByLabelText('Land (ISO-Code):')).toHaveAttribute('aria-invalid', 'true');
+  expect(client.saveProfile).not.toHaveBeenCalled();
+  edit('Land (ISO-Code):', 'AT'); edit('Telefon:', ''); save();
+  await screen.findByText('Ihre Kontaktdaten wurden gespeichert.');
+  expect(client.saveProfile).toHaveBeenCalledWith(expect.objectContaining({countryCode: 'AT', phone: null, contactEmail: 'contact@example.com'}), expect.any(AbortSignal));
+});
+
+
+test('late account-list 401 from a previous identity cannot log out the current user', async () => {
+  const client = adapter(); mount(client); await ready();
+  let reject!: (error: AuthError) => void;
+  client.listAccounts.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
+  fireEvent.click(screen.getByRole('button', {name: 'Konten neu laden'}));
+  client.getSession.mockResolvedValue(session('b')); client.getProfile.mockResolvedValue(profile('b'));
+  fireEvent.click(screen.getByRole('button', {name: /Session/}));
+  await waitFor(() => expect(screen.getByTestId('identity')).toHaveTextContent('authenticated:b'));
+  await act(async () => reject(new AuthError('unauthorized')));
+  expect(screen.getByTestId('identity')).toHaveTextContent('authenticated:b');
+  expect(screen.getByTestId('notice')).not.toHaveTextContent('HTTP 401');
 });

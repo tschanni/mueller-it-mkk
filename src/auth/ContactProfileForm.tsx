@@ -70,7 +70,7 @@ export function ContactProfileForm() {
         {contactFields.map(field => <React.Fragment key={field.key}>
           <label htmlFor={`contact-${field.key}`}>{field.label}:</label>
           <div className="auth-contact-input">
-            <input id={`contact-${field.key}`} autoComplete={field.autoComplete} type="text"
+            <input id={`contact-${field.key}`} autoComplete={field.autoComplete} type={field.key === 'contactEmail' ? 'email' : field.key === 'phone' ? 'tel' : 'text'}
               disabled={loading || !!loadError || saving || busy} value={draft[field.key]}
               aria-invalid={!!errors[field.key]} aria-describedby={errors[field.key] ? `contact-${field.key}-error` : undefined}
               onChange={event => { setDraft(value => ({ ...value, [field.key]: event.target.value })); setErrors(value => ({ ...value, [field.key]: undefined })); setSaved(false); setSaveError(''); }} />

@@ -2,7 +2,7 @@
 
 Stand 16.10.2026. Backend-SHA:
 `03030cce4409eec9a347998feeea71062affd5fb`.
-Die Liste ist vorbereitet, noch nicht manuell im Browser abgenommen.
+Automatisierte Chromium-Abnahme: siehe aktuellen Ergebnisbericht FRONTEND-INTEGRATION-RESULT.md. Die folgende Liste bleibt die Checkliste fuer vollstaendige manuelle Live-Abnahme.
 Keine produktive Veroeffentlichung erfolgt.
 
 ## Registrierung und Login
@@ -27,13 +27,13 @@ Keine produktive Veroeffentlichung erfolgt.
 
 - [ ] Vor Login keine Kontakte/Felder/Profilrequests, nach Logout sofort entfernt.
   Nicht verifizierte Konten erhalten einen Verifikationshinweis.
-- [ ] GET /games/api/v1/me/profile liefert null: sechs leere, optionale Felder.
-  Vollstaendig leeres Formular speichern: sechs null-Werte; Erfolgsanzeige erst
+- [ ] GET /games/api/v1/me/profile liefert null: neun leere, optionale Felder.
+  Vollstaendig leeres Formular speichern: neun null-Werte; Erfolgsanzeige erst
   nach 201-Antwort. Reload bestaetigt den Zustand.
 - [ ] Vorname, Nachname, Strasse, Hausnummer, PLZ und Ort teilweise und vollstaendig
   speichern; nach Reload identisch. PLZ 01234 und internationale PLZ erhalten.
 - [ ] Bereits gespeicherte Werte leeren und speichern: null loescht sie.
-  Zusaetzliche bestehende countryCode/phone/contactEmail bleiben unberuehrt.
+  countryCode/phone/contactEmail sind ebenfalls optional bearbeitbar.
 - [ ] Laengen und Zeichen gemaess DTO testen. Feldfehler sind am Feld lesbar,
   aria-invalid/aria-describedby gesetzt, Eingaben bleiben erhalten.
 - [ ] Manipulierter Request mit ungueltigen Daten ergibt 400, allgemeiner
@@ -91,9 +91,20 @@ Tests: `node node_modules/react-scripts/bin/react-scripts.js test --watchAll=fal
 
 Build: `npm.cmd run build` einschliesslich statischer Callback-Einstiege.
 
-Am 16.10.2026: 6 Testsuiten, 138 erfolgreiche Tests. Testdaten und HTTP-/Adapter-
+Am 16.10.2026: 6 Testsuiten, 141 erfolgreiche Tests. Testdaten und HTTP-/Adapter-
 Mocks; keine produktiven Registrierungen oder Profile geaendert. Browser-Cookies,
 CORS, SMTP und echtes Discord-OAuth sind durch diese Tests nicht abgenommen.
 TypeScript-Check und Produktionsbuild mit `CI=true` erfolgreich, einschliesslich
 der 5 statischen Auth-Einstiege. Bestehende Toolchain-Hinweise: veraltete
 Browserslist-Daten und Node-punycode-Deprecation; keine TypeScript-/ESLint-Fehler.
+
+## Durchgefuehrte Browser-Abnahme am 16.10.2026
+
+Siehe [Ergebnis und verbleibende Grenzen](FRONTEND-INTEGRATION-RESULT.md).
+13 lokale Browserpruefungen in isoliertem Chrome 155 bestanden, darunter
+Registrierung, Verifikationsrueckkehr, Login, Profil/Reload, Logout, Discord-Start,
+503/Netzwerk/401 und schmale Ansicht. Die Live-Leseabnahme ist wegen der
+protokollierten zwischenzeitlichen Session-/Transportfehler nicht vollstaendig
+erfolgreich. Reale schreibende E2E-Flows bleiben bewusst ungeprueft: keine
+Freigabe fuer Kontoanlage oder Mailversand. Diese Liste ist keine vollstaendige
+Freigabe fuer Produktion oder andere Browserengines.

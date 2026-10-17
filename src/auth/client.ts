@@ -225,7 +225,7 @@ export function createAuthClient(options: { baseURL: string; frontendOrigin: str
       return value.profile === null ? null : checkedProfile(value.profile);
     },
     async saveProfile(input, signal) {
-      // Allowlist six fields: never forward IDs, names, roles or other contacts.
+      // Allowlist documented contact fields; never forward identity or authorization fields.
       const body: JsonObject = {};
       for (const { key } of contactFields) body[key] = input[key];
       return checkedProfile(await request('me/profile', signal, body, true));

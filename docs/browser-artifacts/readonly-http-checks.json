@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-16",
+  "productionWrites": 0,
+  "sessionChecks": [
+    {
+      "attempt": 1,
+      "status": 200,
+      "anonymous": true,
+      "allowOrigin": "https://www.mueller-it-mkk.de",
+      "allowCredentials": "true"
+    },
+    {
+      "attempt": 2,
+      "status": 200,
+      "anonymous": true,
+      "allowOrigin": "https://www.mueller-it-mkk.de",
+      "allowCredentials": "true"
+    },
+    {
+      "attempt": 3,
+      "status": 200,
+      "anonymous": true,
+      "allowOrigin": "https://www.mueller-it-mkk.de",
+      "allowCredentials": "true"
+    }
+  ],
+  "postPreflights": [
+    {
+      "path": "/games/api/v1/me/profile",
+      "method": "OPTIONS",
+      "requestedMethod": "POST",
+      "status": 204,
+      "allowOrigin": "https://www.mueller-it-mkk.de",
+      "allowCredentials": "true",
+      "allowMethods": "GET,POST,OPTIONS",
+      "allowHeaders": "content-type"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-up/email",
+      "method": "OPTIONS",
+      "requestedMethod": "POST",
+      "status": 204,
+      "allowOrigin": "https://www.mueller-it-mkk.de",
+      "allowCredentials": "true",
+      "allowMethods": "GET,POST,OPTIONS",
+      "allowHeaders": "content-type"
+    }
+  ]
+}

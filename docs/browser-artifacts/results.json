@@ -1,0 +1,14 @@
+{
+  "liveRequested": false,
+  "checks": [
+    "browser registration sends only confirmed fields",
+    "browser registration preserves name"
+  ],
+  "live": [],
+  "productionWrites": 0,
+  "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+  "failure": {
+    "label": "login success",
+    "text": "Anmelden\nMüller IT MKK\nBilder\nTaschenrechner\nPong\nMusik\nGameserver-Manager\nMüller IT MKK\nMüller IT MKK\nÜber Uns\nLeistungen\nKontakt\nÜber uns\n\nWillkommen bei der Müller IT MKK.\n\nWir möchten Ihnen gerne IT-Dienstleistungen anbieten, die nicht nach begleichen der Rechnung verschwinden, sondern auf langfristige Zusammenarbeit setzen.\nGerne stehen wir Ihnen bei allen Fragen rund um Ihre IT zur Verfügung. Dabei spielt es keine Rolle ob Sie Probleme mit ihrem vorhandenen System haben oder eine komplett neue Infrastruktur aufbauen möchten.\n\nDie Müller IT MKK steht Ihnen als verlässlicher Partner zur Seite.\nMueller IT MKK Welt Anmeldung\n\nGeben Sie Ihre E-Mail-Adresse und Ihr Passwort für die Anmeldung bei Mueller IT MKK Welt ein.\n\nE-Mail:\nPasswort:\nAnmelden\nAbbrechen\nMit Discord anmelden\nNeues Konto erstellen\nPasswort vergessen?\nBestätigungsmail erneut senden\nStart\nMüller IT MKK\nMueller IT MKK Welt Anmeldung\nImpressum\n19:39"
+  }
+}

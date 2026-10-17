@@ -37,12 +37,12 @@ pruefung implementiert. Die Quellkopie bleibt fuer Nachvollziehbarkeit unveraend
 
 ## Profil und Datenschutz
 
-Die sechs beauftragten Felder sind `firstName`, `lastName`, `street`,
-`houseNumber`, `postalCode`, `city`. Die Laengen und Zeichenregeln entsprechen
-dem DTO. PLZ ist immer Text, inklusive fuehrender Nullen und internationaler
-Zeichen. Alle Felder koennen leer bleiben. `countryCode`, `phone`, `contactEmail`
-werden weder angezeigt noch gesendet, daher bei Teilaktualisierung nicht geloescht.
-Antworten werden auf sechs Kontaktfelder sowie `userId`/`updatedAt` reduziert.
+Die neun optionalen Felder sind `firstName`, `lastName`, `street`,
+`houseNumber`, `postalCode`, `city`, `countryCode`, `phone`, `contactEmail`.
+PLZ bleibt Text. Alle Felder koennen leer bleiben; Leeren sendet null.
+Land verwendet zwei Grossbuchstaben, Telefon die dokumentierten Zeichen,
+Kontakt-E-Mail eine eigene Adresse ohne Einfluss auf die Login-E-Mail.
+Antworten werden auf diese Felder sowie `userId`/`updatedAt` reduziert.
 
 Keine Benutzer-ID im Request-Body, kein Admin-Profilpfad. Das Backend waehlt die
 Identitaet aus der Session. Das Frontend prueft die Antwort-ID zusaetzlich.

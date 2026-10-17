@@ -168,11 +168,14 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
     notify(safeAuthMessage(error), 'Anfrage fehlgeschlagen', error instanceof AuthError && ['expired', 'unauthorized', 'verification', 'rate-limited', 'fresh-session', 'contract-pending'].includes(error.code) ? 'warning' : 'error');
   }, [apply, notify]);
   const listAccounts = useCallback(async (signal: AbortSignal) => {
+    const version = identityVersion.current;
     try {
       if (!adapter.listAccounts) throw new AuthError('not-configured');
-      return await abortable(adapter.listAccounts(signal), signal);
+      const result = await abortable(adapter.listAccounts(signal), signal);
+      if (version !== identityVersion.current) throw new AuthError('network');
+      return result;
     } catch (error) {
-      if (mounted.current && !signal.aborted) handleFailure(error);
+      if (mounted.current && !signal.aborted && version === identityVersion.current) handleFailure(error);
       throw error;
     }
   }, [adapter, handleFailure]);

@@ -108,3 +108,14 @@ protokollierten zwischenzeitlichen Session-/Transportfehler nicht vollstaendig
 erfolgreich. Reale schreibende E2E-Flows bleiben bewusst ungeprueft: keine
 Freigabe fuer Kontoanlage oder Mailversand. Diese Liste ist keine vollstaendige
 Freigabe fuer Produktion oder andere Browserengines.
+
+## Fortsetzung am 17.10.2026
+
+Erneuter Lauf `npm run test:browser -- --live`: erfolgreich, Exitcode 0.
+Anonyme Session 200 null, eigenes Profil 401, alle sechs OPTIONS 204.
+Zusaetzlich bestanden die 13 lokal simulierten Browser-Assertions unveraendert.
+[Aktueller Bericht](FRONTEND-INTEGRATION-RESULT.md) und
+[Liveprotokoll mit Build-/Zeitangabe](browser-artifacts/results-live.json).
+Der lokale Build blieb unveroeffentlicht. Die echten schreibenden Flows,
+SMTP-Zustellung und ein authentifizierter Discord-Callback bleiben ohne
+freigegebenes Konto bzw. Mailversand ausserhalb der Abnahme.

@@ -1,4 +1,4 @@
-# Frontend-Integration: Abnahme vom 16.10.2026
+# Frontend-Integration: Abnahme aktualisiert am 17.10.2026
 
 Backend-Vertrag aus Commit `03030cce4409eec9a347998feeea71062affd5fb`
 ueber `git show` im Backend-Checkout gelesen. Die Vertragskopien im Frontend
@@ -52,22 +52,28 @@ und OPTIONS fuer dokumentierte Auth-/Profilrouten gegen Produktion freigegeben.
 Alle anderen Aufrufe werden abgefangen oder blockiert. Frisches Browserprofil,
 keine produktiven Cookies, Konten, Testdaten oder Mails.
 
-Produktive Lesepruefungen ergaben im Browser sowohl 200 null fuer get-session
-als auch zwischenzeitlich HTTP 500 und abgebrochene/zeitueberschrittene Requests.
-Das aktuelle [Liveprotokoll](browser-artifacts/results-live.json) besteht deshalb
-nicht vollstaendig: Session-Lesepruefung und einzelne Browser-OPTIONS sind dort
-nicht erfolgreich. Der anonyme Profilzugriff wird korrekt mit 401 abgewiesen.
-Die 13 lokalen Browser-Assertions bestehen auch in diesem Lauf.
+Die erneute Browserpruefung am 17.10.2026 war erfolgreich (Exitcode 0):
+get-session liefert 200 null mit no-store, das eigene Profil anonym 401 mit
+no-store. Alle sechs geprueften Auth-/Profil-OPTIONS liefern 204 und sind unter
+der echten Frontend-Origin im Browser lesbar. Die beiden Live-Lesepruefungen,
+die OPTIONS-Pruefung sowie alle 13 lokalen Browser-Assertions bestehen.
+Das [aktuelle Liveprotokoll](browser-artifacts/results-live.json) enthaelt
+Start-/Endzeit und den geprueften Build `main.7dd5da45.js`.
 
-Eine separate, begrenzte HTTP-Gegenpruefung lieferte anschliessend dreimal
-200 null fuer get-session, jeweils mit exakter CORS-Origin und Credentials.
-Die echten POST-Preflights (OPTIONS mit Access-Control-Request-Method: POST)
-fuer Profil und Registrierung lieferten 204, erlauben Content-Type und
-GET/POST/OPTIONS. [Gegenpruefung](browser-artifacts/readonly-http-checks.json).
-Ein dauerhafter Backend-/CORS-Defekt ist damit nicht nachgewiesen. Die Ursache
-der zwischenzeitlichen Browserfehler ist ohne weitere Betriebsdaten nicht
-abgesichert; eine durchgehend erfolgreiche Live-Abnahme liegt noch nicht vor.
-Das Frontend behandelt diese Fehler ohne Abmeldung einer gueltigen Session.
+Der Browser-Test hatte selbst noch zwei Probleme: Die lokal abgefangene
+Discord-Navigation setzte ihren Erfolgsmarker nicht, und die Live-Requests
+hatten sehr kurze Zeitlimits. Der Marker wird nun beim Abfangen gesetzt;
+jede Live-Anfrage hat ein eigenes begrenztes Zeitfenster von acht Sekunden.
+Das gesamte Runtime-Kommando muss nicht mehr mehrere Live-Anfragen gemeinsam
+innerhalb seines Zeitlimits abschliessen. Kein Produktivzugriff wird dadurch
+ausgeweitet: nur die bisherigen anonymen GET-/OPTIONS-Routen sind erlaubt.
+
+Die Fehler vom 16.10. (zwischenzeitlich 500/Timeouts) bleiben eine historische
+Beobachtung, sind im aktuellen Lauf nicht reproduziert. Ein dauerhafter
+Backend-/CORS-Defekt wurde nicht nachgewiesen. Einzelne abgebrochene bzw.
+absichtlich blockierte Netzwerkereignisse im Diagnoseprotokoll sind keine
+fehlgeschlagenen Ergebnispruefungen. Die separate damalige HTTP-Gegenpruefung
+ist unter [Gegenpruefung](browser-artifacts/readonly-http-checks.json) erhalten.
 Keine Backend-Aenderung vorgenommen.
 
 Reale Registrierung, Mail-Verifikation, Passwortreset, authentifiziertes Profil,

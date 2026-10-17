@@ -17,7 +17,7 @@ const auth = '/games/api/v1/auth/';
 const profilePath = '/games/api/v1/me/profile';
 const live = process.argv.includes('--live');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-const results = { liveRequested: live, checks: [], live: [], productionWrites: 0 };
+const results = { startedAt: new Date().toISOString(), liveRequested: live, checks: [], live: [], productionWrites: 0 };
 const artifacts = path.join(root, 'docs', 'browser-artifacts');
 const check = (name, value = true) => { assert(value, name); results.checks.push(name); };
 
@@ -28,6 +28,7 @@ async function main() {
   if (!executable) throw Error('No Chromium found. Set BROWSER_PATH.');
   const build = path.join(root, 'build');
   await fs.access(path.join(build, 'index.html'));
+  results.buildMain = JSON.parse(await fs.readFile(path.join(build, 'asset-manifest.json'), 'utf8')).files['main.js'];
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'mkk-browser-'));
   const browser = spawn(executable, ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-sync', '--remote-debugging-port=0', `--user-data-dir=${temporary}`, 'about:blank'], { windowsHide: true, stdio: 'ignore' });
   let socket;
@@ -122,7 +123,10 @@ async function main() {
         }
         return fulfill(requestId, 404, {});
       }
-      if (url.origin === 'https://discord.com' && discordRequested) return command('Fetch.fulfillRequest', { requestId, responseCode: 200, responseHeaders: [{ name: 'Content-Type', value: 'text/html' }], body: Buffer.from('<!doctype html><title>OAuth navigation intercepted locally</title>').toString('base64') });
+      if (url.origin === 'https://discord.com' && discordRequested) {
+        results.oauthNavigationBlocked = true;
+        return command('Fetch.fulfillRequest', { requestId, responseCode: 200, responseHeaders: [{ name: 'Content-Type', value: 'text/html' }], body: Buffer.from('<!doctype html><title>OAuth navigation intercepted locally</title>').toString('base64') });
+      }
       // Never reach external OAuth or other third-party services during the smoke test.
       if (url.origin === 'https://discord.com' && event.resourceType === 'Document') results.oauthNavigationBlocked = true;
       return command('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' });
@@ -134,10 +138,16 @@ async function main() {
     await until(text('Start'), 'local desktop');
     results.browser = await evaluate('navigator.userAgent');
     if (live) {
-      const read = await evaluate(`(async () => { const out = []; for (const path of ${JSON.stringify([auth + 'get-session', profilePath])}) { try { const r = await fetch(${JSON.stringify(api)} + path, { credentials: 'include', cache: 'no-store', signal: AbortSignal.timeout(5000) }); const body = await r.json().catch(() => undefined); out.push({ path, status: r.status, cacheControl: r.headers.get('cache-control'), anonymous: body === null }); } catch { out.push({ path, transportError: true }); } } return out; })()`);
+      const read = [];
+      for (const endpoint of [auth + 'get-session', profilePath]) {
+        read.push(await evaluate(`(async () => { const path = ${JSON.stringify(endpoint)}; try { const r = await fetch(${JSON.stringify(api)} + path, { credentials: 'include', cache: 'no-store', signal: AbortSignal.timeout(8000) }); const body = await r.json().catch(() => undefined); return { path, status: r.status, cacheControl: r.headers.get('cache-control'), anonymous: body === null }; } catch (error) { return { path, transportError: true, timeout: error.name === 'TimeoutError' }; } })()`));
+      }
       results.live.push(...read);
       // Explicit safe OPTIONS verifies actual production JSON preflight routing.
-      const preflights = await evaluate(`(async () => { const out = []; for (const path of ${JSON.stringify([profilePath, auth + 'sign-up/email', auth + 'sign-in/email', auth + 'sign-in/social', auth + 'sign-out', auth + 'send-verification-email'])}) { try { const r = await fetch(${JSON.stringify(api)} + path, { method: 'OPTIONS', credentials: 'include', signal: AbortSignal.timeout(2000), headers: { 'Content-Type': 'application/json' } }); out.push({ path, method: 'OPTIONS', status: r.status }); } catch { out.push({ path, method: 'OPTIONS', transportError: true }); } } return out; })()`);
+      const preflights = [];
+      for (const endpoint of [profilePath, auth + 'sign-up/email', auth + 'sign-in/email', auth + 'sign-in/social', auth + 'sign-out', auth + 'send-verification-email']) {
+        preflights.push(await evaluate(`(async () => { const path = ${JSON.stringify(endpoint)}; try { const r = await fetch(${JSON.stringify(api)} + path, { method: 'OPTIONS', credentials: 'include', signal: AbortSignal.timeout(8000), headers: { 'Content-Type': 'application/json' } }); return { path, method: 'OPTIONS', status: r.status }; } catch (error) { return { path, method: 'OPTIONS', transportError: true, timeout: error.name === 'TimeoutError' }; } })()`));
+      }
       results.live.push(...preflights);
       results.liveChecks = { anonymousSession: read[0].status === 200 && read[0].anonymous, anonymousProfile: read[1].status === 401 };
       results.livePreflightPassed = preflights.every(item => item.status >= 200 && item.status < 300);
@@ -199,6 +209,7 @@ async function main() {
     console.log(JSON.stringify(results, null, 2));
     if (live && (!results.liveChecks.anonymousSession || !results.liveChecks.anonymousProfile || !results.livePreflightPassed)) process.exitCode = 1;
   } finally {
+    results.finishedAt = new Date().toISOString();
     await fs.mkdir(artifacts, { recursive: true });
     await fs.writeFile(path.join(artifacts, live ? 'results-live.json' : 'results-offline.json'), JSON.stringify(results, null, 2) + '\n');
     if (socket) socket.close(); browser.kill();

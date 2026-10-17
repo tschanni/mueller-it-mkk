@@ -1,6 +1,8 @@
 {
+  "startedAt": "2026-10-17T07:23:30.898Z",
   "liveRequested": true,
   "checks": [
+    "live profile/auth OPTIONS usable in browser",
     "browser registration sends only confirmed fields",
     "browser registration preserves name",
     "user.name and stable ID displayed",
@@ -18,7 +20,9 @@
   "live": [
     {
       "path": "/games/api/v1/auth/get-session",
-      "transportError": true
+      "status": 200,
+      "cacheControl": "no-store",
+      "anonymous": true
     },
     {
       "path": "/games/api/v1/me/profile",
@@ -29,12 +33,12 @@
     {
       "path": "/games/api/v1/me/profile",
       "method": "OPTIONS",
-      "transportError": true
+      "status": 204
     },
     {
       "path": "/games/api/v1/auth/sign-up/email",
       "method": "OPTIONS",
-      "transportError": true
+      "status": 204
     },
     {
       "path": "/games/api/v1/auth/sign-in/email",
@@ -58,19 +62,13 @@
     }
   ],
   "productionWrites": 0,
+  "buildMain": "./static/js/main.7dd5da45.js",
   "liveNetworkFailures": [
     {
       "path": "/games/api/v1/public/servers",
       "method": "GET",
       "error": "net::ERR_BLOCKED_BY_CLIENT.Inspector",
       "canceled": false,
-      "cors": null
-    },
-    {
-      "path": "/games/api/v1/auth/get-session",
-      "method": "GET",
-      "error": "net::ERR_ABORTED",
-      "canceled": true,
       "cors": null
     },
     {
@@ -118,10 +116,10 @@
   ],
   "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
   "liveChecks": {
-    "anonymousSession": false,
+    "anonymousSession": true,
     "anonymousProfile": true
   },
-  "livePreflightPassed": false,
+  "livePreflightPassed": true,
   "mockRequests": [
     {
       "path": "/games/api/v1/public/servers",
@@ -255,5 +253,7 @@
       "path": "/games/api/v1/auth/sign-in/social",
       "method": "POST"
     }
-  ]
+  ],
+  "oauthNavigationBlocked": true,
+  "finishedAt": "2026-10-17T07:23:40.931Z"
 }

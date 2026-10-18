@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { EventPage, GameServer, Metrics, Players, request, statusText } from './api';
 import { useServers } from './useServers';
 import './gameserver.css';
+import { MinecraftAccessPanel } from './MinecraftAccessPanel';
 import { publicAsset } from '../../utils/publicAsset';
-const tabs = ['Übersicht', 'Server', 'Leistung', 'Ereignisse'];
+const tabs = ['Übersicht', 'Server', 'Leistung', 'Ereignisse', 'Minecraft-Zugang'];
 const value = (v: unknown, unit = '') => v === null || v === undefined || v === '' ? 'Nicht verfügbar' : String(v) + unit;
 const date = (v: string | null) => v && Number.isFinite(Date.parse(v)) ? new Date(v).toLocaleString('de-DE') : 'Nicht verfügbar';
 function Status({ server }: {
@@ -60,7 +61,7 @@ export function GameserverManager() {
     useEffect(() => {
         setData({});
         setDetailError('');
-        if (!slug || tab === 0)
+        if (!slug || tab === 0 || tab === 4)
             return;
         const abort = new AbortController();
         setBusy(true);
@@ -76,18 +77,19 @@ export function GameserverManager() {
     return <div className="gsm">
  <div className="gsm-toolbar"><span>Öffentliche Serverüberwachung</span><button onClick={refresh}>Aktualisieren</button></div>
  <div role="tablist" aria-label="Gameserver-Ansichten" className="gsm-tabs">{tabs.map((label, i) => <button key={label} ref={el => { tabRefs.current[i] = el; }} id={'gsm-tab-' + i} role="tab" aria-selected={tab === i} aria-controls={'gsm-panel-' + i} tabIndex={tab === i ? 0 : -1} onClick={() => setTab(i)} onKeyDown={e => { let next = i; if (e.key === 'ArrowRight')
-        next = (i + 1) % 4;
+        next = (i + 1) % tabs.length;
     else if (e.key === 'ArrowLeft')
-        next = (i + 3) % 4;
+        next = (i + tabs.length - 1) % tabs.length;
     else if (e.key === 'Home')
         next = 0;
     else if (e.key === 'End')
-        next = 3;
+        next = tabs.length - 1;
     else
         return; e.preventDefault(); setTab(next); tabRefs.current[next]?.focus(); }}>{label}</button>)}</div>
  <div role="tabpanel" id={'gsm-panel-' + tab} aria-labelledby={'gsm-tab-' + tab} className="gsm-panel">
- {loading && <p role="status">Server werden geladen…</p>}{error && <p role="alert">{error} <button onClick={refresh}>Erneut versuchen</button></p>}
- {!loading && !error && !servers.length && <p>Keine Gameserver eingerichtet.</p>}
+ {tab === 4 && <MinecraftAccessPanel />}
+ {tab !== 4 && loading && <p role="status">Server werden geladen…</p>}{tab !== 4 && error && <p role="alert">{error} <button onClick={refresh}>Erneut versuchen</button></p>}
+ {tab !== 4 && !loading && !error && !servers.length && <p>Keine Gameserver eingerichtet.</p>}
  {tab === 0 && !!servers.length && <>
    <div className="gsm-cards" aria-label="Gameserver">
      {servers.map(s => <article key={s.id} className={'gsm-card' + (server?.id === s.id ? ' gsm-card-selected' : '')}
@@ -123,7 +125,7 @@ export function GameserverManager() {
    </div>
    <p>Server doppelt anklicken oder mit Enter öffnen.</p>
  </>}
- {tab !== 0 && server && <><label className="gsm-selector">Server: <select value={server.id} onChange={e => setSelected(e.target.value)}>{servers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>{busy && <p role="status">Daten werden geladen…</p>}{detailError && tab !== 1 && <p role="alert">{detailError} <button onClick={refresh}>Erneut versuchen</button></p>}
+ {tab !== 0 && tab !== 4 && server && <><label className="gsm-selector">Server: <select value={server.id} onChange={e => setSelected(e.target.value)}>{servers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>{busy && <p role="status">Daten werden geladen…</p>}{detailError && tab !== 1 && <p role="alert">{detailError} <button onClick={refresh}>Erneut versuchen</button></p>}
  {tab === 1 && <><div className="gsm-details"><Fields title="Allgemein" fields={[['Servername', server.name], ['Spiel', server.gameType], ['Status', <Status server={server}/>], ['Version', value(server.gameVersion)], ['Letzte erfolgreiche Prüfung', date(server.lastSuccessfulCheckAt)]]}/><Fields title="Verbindung" fields={[['Hostname', server.connection.host], ['Port', server.connection.port], ['Latenz', value(server.latencyMs, ' ms')], ['Monitoring', server.capability], ['Letzte Prüfung', date(server.lastCheckedAt)]]}/><Fields title="Spieler" fields={[['Aktuell', value(server.onlinePlayers)], ['Maximum', value(server.maxPlayers)], ['Spielerliste', detailError ? <span role="status">Spielerliste konnte nicht geladen werden. <button onClick={refresh}>Erneut versuchen</button></span> : data.players ? data.players.available ? data.players.players.join(', ') || 'Keine Spieler gemeldet.' : 'Spielernamen nicht öffentlich verfügbar.' : 'Nicht verfügbar']]}/><Fields title="Weitere Informationen" fields={[['Statusmeldung', server.statusMessage], ['MOTD', value(server.motd)], ['Monitoring-Hinweis', server.lastError?.message || 'Keine Warnung gemeldet.']]}/></div><button onClick={async () => { try {
             await navigator.clipboard.writeText(address);
             setCopy('Adresse kopiert.');

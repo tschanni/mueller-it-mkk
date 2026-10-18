@@ -1,0 +1,197 @@
+{
+  "startedAt": "2026-10-18T15:47:02.424Z",
+  "liveRequested": false,
+  "checks": [
+    "browser registration sends only confirmed fields",
+    "browser registration preserves name",
+    "user.name and stable ID displayed",
+    "no name or image editor",
+    "profile save preserves ZIP and clears empty fields",
+    "reload restores session and contacts",
+    "503 does not log user out",
+    "network does not log user out",
+    "320px account window stays entirely inside the viewport",
+    "320px account content fits without horizontal scrolling",
+    "320px title controls have 44px touch targets",
+    "390px account content fits without horizontal scrolling",
+    "390px title controls have 44px touch targets",
+    "760px account content fits without horizontal scrolling",
+    "760px title controls have 44px touch targets",
+    "Minecraft opens required Discord modal",
+    "Minecraft modal uses native focus trap",
+    "Minecraft panel fits 320px",
+    "Minecraft dialog fits 320px",
+    "401 removes contact fields",
+    "logout removes identity and contacts",
+    "Discord requests provider URL and attempts top-level navigation without contacting provider",
+    "no interception errors"
+  ],
+  "live": [],
+  "productionWrites": 0,
+  "buildMain": "./static/js/main.7f12cf65.js",
+  "mockRequests": [
+    {
+      "path": "/games/api/v1/public/servers",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-up/email",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-up/email",
+      "method": "POST"
+    },
+    {
+      "path": "/games/api/v1/public/servers",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/email",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/email",
+      "method": "POST"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/me/profile",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/list-accounts",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/me/profile",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/games/api/v1/me/profile",
+      "method": "POST"
+    },
+    {
+      "path": "/games/api/v1/public/servers",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/me/profile",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/list-accounts",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/public/servers",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/public/stream",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/public/servers",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/me/minecraft",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/me/minecraft/whitelist",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/games/api/v1/me/minecraft/whitelist",
+      "method": "POST"
+    },
+    {
+      "path": "/games/api/v1/me/minecraft",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/email",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/email",
+      "method": "POST"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/me/profile",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/list-accounts",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-out",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-out",
+      "method": "POST"
+    },
+    {
+      "path": "/games/api/v1/public/servers",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/social",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/social",
+      "method": "POST"
+    }
+  ],
+  "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+  "oauthNavigationBlocked": true,
+  "finishedAt": "2026-10-18T15:47:05.286Z"
+}

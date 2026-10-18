@@ -15,6 +15,7 @@ const frontend = 'https://www.mueller-it-mkk.de';
 const api = 'https://api.mueller-it-mkk.de';
 const auth = '/games/api/v1/auth/';
 const profilePath = '/games/api/v1/me/profile';
+const minecraftPath = '/games/api/v1/me/minecraft';
 const live = process.argv.includes('--live');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const results = { startedAt: new Date().toISOString(), liveRequested: live, checks: [], live: [], productionWrites: 0 };
@@ -116,6 +117,8 @@ async function main() {
         if (p === auth + 'sign-out') { signedIn = false; return fulfill(requestId, 200, { success: true }); }
         if (p === auth + 'sign-in/social') { discordRequested = true; return fulfill(requestId, 200, { redirect: true, url: 'https://discord.com/oauth2/authorize?state=browser-fixture' }); }
         if (p === auth + 'list-accounts') return fulfill(requestId, 200, []);
+        if (p === minecraftPath) return fulfill(requestId, 200, { enabled: true, discord: { linked: false, membership: 'UNKNOWN' }, minecraft: null });
+        if (p === minecraftPath + '/whitelist') return fulfill(requestId, 403, { code: 'DISCORD_NOT_LINKED', message: 'Bitte verknüpfe zuerst Discord.' });
         if (p === profilePath) {
           if (request.method === 'GET') return fulfill(requestId, 200, { profile: contact });
           savedBody = JSON.parse(request.postData); contact = { ...savedBody, userId: user.id, updatedAt: new Date().toISOString() };
@@ -184,23 +187,40 @@ async function main() {
     }
     await fs.mkdir(artifacts, { recursive: true });
     const screenshot = await command('Page.captureScreenshot', { format: 'png' });
-    await fs.writeFile(path.join(artifacts, 'account-desktop.png'), Buffer.from(screenshot.data, 'base64'));
+    if (!process.argv.includes('--minecraft-only')) await fs.writeFile(path.join(artifacts, 'account-desktop.png'), Buffer.from(screenshot.data, 'base64'));
     await command('Emulation.setDeviceMetricsOverride', { width: 320, height: 740, deviceScaleFactor: 1, mobile: false });
     check('320px account window stays entirely inside the viewport', await evaluate('(() => { const r = document.querySelector(".auth-window").getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight - 34; })()'));
     const mobile = await command('Page.captureScreenshot', { format: 'png' });
-    await fs.writeFile(path.join(artifacts, 'account-mobile.png'), Buffer.from(mobile.data, 'base64'));
+    if (!process.argv.includes('--minecraft-only')) await fs.writeFile(path.join(artifacts, 'account-mobile.png'), Buffer.from(mobile.data, 'base64'));
     for (const width of [320, 390, 760]) {
       await command('Emulation.setDeviceMetricsOverride', { width, height: 740, deviceScaleFactor: 1, mobile: false });
       check(width + 'px account content fits without horizontal scrolling', await evaluate('(() => { const body = document.querySelector(".auth-window > .window-body"); return body.scrollWidth <= body.clientWidth + 1; })()'));
       check(width + 'px title controls have 44px touch targets', await evaluate('Array.from(document.querySelectorAll(".auth-window .title-bar-controls button")).every(button => { const r = button.getBoundingClientRect(); return r.width >= 44 && r.height >= 44; })'));
     }
     await command('Emulation.setDeviceMetricsOverride', { width: 320, height: 740, deviceScaleFactor: 1, mobile: false });
-    for (const title of ['Taschenrechner', 'Bilder', 'Musik', 'Pong', 'Gameserver-Manager']) {
+    for (const title of (process.argv.includes('--minecraft-only') ? [] : ['Taschenrechner', 'Bilder', 'Musik', 'Pong', 'Gameserver-Manager'])) {
       await evaluate(`Array.from(document.querySelectorAll('.app-icon')).find(button => button.title === ${JSON.stringify(title)}).click()`);
       check(title + ' mobile window and content fit', await evaluate('(() => { const windows = Array.from(document.querySelectorAll(".window:not(.hidden)")); const win = windows.sort((a, b) => Number(b.style.zIndex) - Number(a.style.zIndex))[0]; const r = win.getBoundingClientRect(); const body = win.querySelector(".window-body"); return r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight - 60 && body.scrollWidth <= body.clientWidth + 1; })()'));
       await evaluate('(() => { const windows = Array.from(document.querySelectorAll(".window:not(.hidden)")); windows.sort((a, b) => Number(b.style.zIndex) - Number(a.style.zIndex))[0].querySelector("button[aria-label=Close]").click(); })()');
     }
     await command('Emulation.setDeviceMetricsOverride', { width: 1100, height: 850, deviceScaleFactor: 1, mobile: false });
+    // Minecraft self-service: real dialog rendering, all backend calls intercepted.
+    await evaluate("Array.from(document.querySelectorAll('.app-icon')).find(button => button.title === 'Gameserver-Manager').click()");
+    await click('Minecraft-Zugang'); await until(text('Discord: Nicht verknüpft'), 'Minecraft status');
+    await click('Zur Whitelist hinzufügen');
+    await until('!!document.querySelector(".mc98-dialog[open]")', 'Minecraft Discord modal');
+    check('Minecraft opens required Discord modal', await evaluate(text('Discord-Verknüpfung erforderlich')));
+    check('Minecraft modal uses native focus trap', await evaluate('!!document.activeElement.closest(".mc98-dialog")'));
+    const minecraftDesktop = await command('Page.captureScreenshot', { format: 'png' });
+    await fs.writeFile(path.join(artifacts, 'minecraft-discord-desktop.png'), Buffer.from(minecraftDesktop.data, 'base64'));
+    await command('Emulation.setDeviceMetricsOverride', { width: 320, height: 740, deviceScaleFactor: 1, mobile: false });
+    check('Minecraft panel fits 320px', await evaluate('(() => { const panel = document.querySelector(".gsm-panel"); return panel.scrollWidth <= panel.clientWidth + 1; })()'));
+    check('Minecraft dialog fits 320px', await evaluate('(() => { const r = document.querySelector(".mc98-dialog").getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; })()'));
+    const minecraftMobile = await command('Page.captureScreenshot', { format: 'png' });
+    await fs.writeFile(path.join(artifacts, 'minecraft-discord-mobile.png'), Buffer.from(minecraftMobile.data, 'base64'));
+    await click('Abbrechen');
+    await command('Emulation.setDeviceMetricsOverride', { width: 1100, height: 850, deviceScaleFactor: 1, mobile: false });
+    await evaluate('document.querySelector(".gsm").closest(".window").querySelector("button[aria-label=Close]").click()');
     fault = '401'; await evaluate('window.dispatchEvent(new Event("focus"))');
     await until(text('HTTP 401'), 'invalid session notice');
     check('401 removes contact fields', await evaluate('!document.getElementById("contact-firstName")'));
@@ -216,13 +236,13 @@ async function main() {
     check('Discord requests provider URL and attempts top-level navigation without contacting provider', discordRequested && results.oauthNavigationBlocked);
     check('no interception errors', handlerErrors.length === 0);
     results.productionWrites = 0; // All write requests were fulfilled locally or blocked.
-    await fs.writeFile(path.join(artifacts, live ? 'results-live.json' : 'results-offline.json'), JSON.stringify(results, null, 2) + '\n');
+    await fs.writeFile(path.join(artifacts, live ? 'results-live.json' : process.argv.includes('--minecraft-only') ? 'results-minecraft.json' : 'results-offline.json'), JSON.stringify(results, null, 2) + '\n');
     console.log(JSON.stringify(results, null, 2));
     if (live && (!results.liveChecks.anonymousSession || !results.liveChecks.anonymousProfile || !results.livePreflightPassed)) process.exitCode = 1;
   } finally {
     results.finishedAt = new Date().toISOString();
     await fs.mkdir(artifacts, { recursive: true });
-    await fs.writeFile(path.join(artifacts, live ? 'results-live.json' : 'results-offline.json'), JSON.stringify(results, null, 2) + '\n');
+    await fs.writeFile(path.join(artifacts, live ? 'results-live.json' : process.argv.includes('--minecraft-only') ? 'results-minecraft.json' : 'results-offline.json'), JSON.stringify(results, null, 2) + '\n');
     if (socket) socket.close(); browser.kill();
     await sleep(300);
     // Only the fresh directory returned by mkdtemp is removed, never a user profile.

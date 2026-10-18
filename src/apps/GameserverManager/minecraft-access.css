@@ -1,0 +1,74 @@
+.mc98 {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: #c0c0c0;
+  color: #000;
+  font:
+    13px Tahoma,
+    sans-serif;
+  padding: 3px 12px 12px;
+  border: 2px solid;
+  border-color: #fff #404040 #404040 #fff;
+  box-shadow: 1px 1px #000;
+}
+.mc98 h2 {
+  background: #000080;
+  color: white;
+  font-size: 14px;
+  padding: 4px 6px;
+  margin: 0 -9px 12px;
+}
+.mc98 button,
+.mc98 .mc98-button {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font: inherit;
+  color: #000;
+  background: #c0c0c0;
+  padding: 5px 12px;
+  border: 2px solid;
+  border-color: #fff #404040 #404040 #fff;
+  text-decoration: none;
+}
+.mc98 button:disabled {
+  color: #666;
+  text-shadow: 1px 1px #fff;
+}
+.mc98 button:active:not(:disabled) {
+  border-color: #404040 #fff #fff #404040;
+}
+.mc98 :focus-visible {
+  outline: 1px dotted #000;
+  outline-offset: 2px;
+}
+.mc98 input,
+.mc98 dd {
+  border: 2px inset #fff;
+  padding: 4px;
+  background: white;
+  color: black;
+}
+.mc98 input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+.mc98 dd {
+  margin: 4px 0 8px;
+  overflow-wrap: anywhere;
+}
+.mc98-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.mc98-dialog {
+  width: min(480px, 92vw);
+}
+.mc98-dialog::backdrop {
+  background: #0005;
+}

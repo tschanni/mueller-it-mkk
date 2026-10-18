@@ -3,6 +3,7 @@ import { EventPage, GameServer, Metrics, Players, request, statusText } from './
 import { useServers } from './useServers';
 import './gameserver.css';
 import { MinecraftAccessPanel } from './MinecraftAccessPanel';
+import { MinecraftOverviewAccess } from './MinecraftOverviewAccess';
 import { publicAsset } from '../../utils/publicAsset';
 const tabs = ['Übersicht', 'Server', 'Leistung', 'Ereignisse', 'Whitelist'];
 const value = (v: unknown, unit = '') => v === null || v === undefined || v === '' ? 'Nicht verfügbar' : String(v) + unit;
@@ -103,7 +104,7 @@ export function GameserverManager() {
              onKeyDown={e => { if (e.key === 'Enter') { setSelected(s.id); setTab(1); } }}>{s.name}</button></h3>
            <Status server={s} />
          </div>
-         {s.gameType === 'MINECRAFT' && <div className="gsm-whitelist-entry"><div><strong>Du willst Teil der Müller IT MKK Minecraft Welt werden?</strong><span>Verknüpfe jetzt dein Profil und schalte deinen Zugang frei.</span></div><button onDoubleClick={e => e.stopPropagation()} onClick={e => { e.stopPropagation(); setSelected(s.id); setTab(4); tabRefs.current[4]?.focus(); }}><span aria-hidden="true">+ </span>Whitelist öffnen</button></div>}
+         {s.gameType === 'MINECRAFT' && <MinecraftOverviewAccess onOpen={() => { setSelected(s.id); setTab(4); tabRefs.current[4]?.focus(); }} />}
          <dl className="gsm-card-facts">
            <div><dt>Spieler</dt><dd>{value(s.onlinePlayers)} / {value(s.maxPlayers)}</dd></div>
            <div><dt>Version</dt><dd>{value(s.gameVersion)}</dd></div>

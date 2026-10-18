@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { GameserverManager } from './GameserverManager';
 import { parseServers, statusText } from './api';
 import App from '../../App';
+jest.mock('../../auth/AuthContext', () => ({ ...jest.requireActual('../../auth/AuthContext'), useAuth: () => ({ session: null, status: 'anonymous', configured: true, busy: false }) }));
 jest.mock('../Gallery/Gallery', () => ({ Gallery: () => null }));
 const sample = { id: 'mc', slug: 'mc', name: 'Minecraft Test', gameType: 'MINECRAFT', status: 'ONLINE', desiredState: 'ONLINE', statusMessage: 'Status geprüft', onlinePlayers: 0, maxPlayers: 20, gameVersion: 'Paper', latencyMs: 29, motd: null, lastCheckedAt: null, lastSuccessfulCheckAt: null, lastError: null, connection: { host: 'minecraft.example.com', port: 25565 }, capability: 'MINECRAFT_STATUS', stale: false };
 class MockStream {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import './minecraft-access.css';
 import { publicAsset } from '../../utils/publicAsset';
 import { WhitelistIcon } from './WhitelistIcon';
+import { MinecraftProfile } from './MinecraftProfile';
 
 interface Status {
   enabled: boolean;
@@ -191,7 +192,7 @@ export function MinecraftAccess({
     <section className="mc98" aria-label="Whitelist" aria-busy={busy}>
       <header className="mc98-header">
         <img src={publicAsset('retro-minecraft.svg')} alt="" />
-        <div><span className="mc98-eyebrow">MINECRAFT JAVA EDITION</span><h2>Whitelist</h2><p>Dein Profil. Dein Zugang. Bereit zum Mitspielen.</p></div>
+        <div><span className="mc98-eyebrow">MINECRAFT JAVA EDITION</span><h2>Whitelist</h2><p>Befolge die nachfolgenden Schritte, um deinen Zugang zur Minecraft-Welt freizuschalten.</p></div>
         <button disabled={busy} onClick={() => void act('')}><WhitelistIcon kind="refresh" />Status aktualisieren</button>
       </header>
       <div className={'mc98-summary mc98-tone-' + (!status ? 'neutral' : !status.enabled || mc?.status === 'ERROR' ? 'error' : mc?.stale || mc?.removing ? 'pending' : mc?.status === 'WHITELISTED' ? 'success' : 'neutral')} role="status" aria-live="polite">
@@ -228,7 +229,7 @@ export function MinecraftAccess({
           {mc && <dl className="mc98-sync"><dt>Letzter erfolgreicher Abgleich</dt><dd>{mc.lastSyncedAt ? new Date(mc.lastSyncedAt).toLocaleString('de-DE') : 'Noch keiner'}</dd>{mc.lastErrorCode && <><dt>Fehlercode</dt><dd>{mc.lastErrorCode}</dd></>}</dl>}
         </section>
       </div>
-      {mc && <footer className="mc98-account"><div><strong>Verknüpftes Profil: {mc.username}</strong><span>UUID: <span>{mc.uuid}</span></span></div><button disabled={busy || !status?.enabled} onClick={() => void act('/unlink')}>Minecraft-Verknüpfung entfernen</button></footer>}
+      {mc && <footer className="mc98-account"><MinecraftProfile uuid={mc.uuid} username={mc.username} /><button disabled={busy || !status?.enabled} onClick={() => void act('/unlink')}>Minecraft-Verknüpfung entfernen</button></footer>}
       <dialog
         className="mc98 mc98-dialog"
         ref={dialog}

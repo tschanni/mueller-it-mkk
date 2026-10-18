@@ -46,6 +46,7 @@
 .mc98-skin,.mc98-skin-placeholder{position:relative;display:block;width:64px;height:64px;flex-shrink:0;overflow:hidden;background:#c0c0c0;outline:1px solid #808080}
 .mc98-skin img{position:absolute;width:512px;max-width:none;height:auto;left:-64px;top:-64px;image-rendering:pixelated}
 .mc98-skin img.mc98-skin-hat{left:-320px}
+.mc98-skin.mc98-skin-render img{position:static;display:block;width:64px;height:64px;object-fit:contain}
 .mc98-skin-placeholder{display:grid;place-items:center}.mc98-skin-placeholder svg{width:32px;height:32px;color:#777}
 .mc98-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
 .mc98-command-result{padding:12px;margin-bottom:14px;background:#e2e6ed;color:#253857;border:1px solid #9ca6b7;overflow-wrap:anywhere}

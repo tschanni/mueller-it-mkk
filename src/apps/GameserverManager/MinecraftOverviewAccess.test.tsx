@@ -11,7 +11,7 @@ beforeEach(() => {
 });
 
 test('replaces invitation with linked profile and keeps management accessible', async () => {
-  mockFetch.mockImplementation(async (url: string) => url.includes('sessionserver') ? { ok: false } : { ok: true, json: async () => ({ minecraft: { username: 'Player_123', uuid: '12345678-1234-1234-1234-123456789abc' } }) });
+  mockFetch.mockImplementation(async (url: string) => url.includes('mc-api.io') ? { ok: false } : { ok: true, json: async () => ({ minecraft: { username: 'Player_123', uuid: '12345678-1234-1234-1234-123456789abc' } }) });
   const open = jest.fn();
   const { rerender } = render(<MinecraftOverviewAccess onOpen={open} />);
   await screen.findByText('Verknüpftes Profil: Player_123');

@@ -126,3 +126,14 @@ test('keeps server details usable when the optional player list fails and allows
     await screen.findByText('Spielernamen nicht \u00f6ffentlich verf\u00fcgbar.');
     expect(screen.queryByText('Spielerliste konnte nicht geladen werden.')).not.toBeInTheDocument();
 });
+
+test('opens the whitelist directly from the Minecraft overview card', async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Gameserver-Manager' }));
+    const entry = await screen.findByRole('button', { name: 'Whitelist öffnen' });
+    expect(screen.getAllByRole('button', { name: 'Whitelist öffnen' })).toHaveLength(1);
+    fireEvent.click(entry);
+    expect(screen.getByRole('tab', { name: 'Whitelist' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Whitelist' })).toHaveFocus();
+    expect(screen.getByRole('heading', { name: 'Whitelist' })).toBeInTheDocument();
+});

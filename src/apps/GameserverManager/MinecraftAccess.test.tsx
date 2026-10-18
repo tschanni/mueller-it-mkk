@@ -88,3 +88,17 @@ test('invalid input never enables linking', async () => {
   fireEvent.change(screen.getByLabelText('Minecraft-Java-Benutzername'), { target: { value: 'a;stop' } });
   expect(screen.getByRole('button', { name: 'Minecraft-Account verknüpfen' })).toBeDisabled();
 });
+
+test('does not present stale whitelist data as ready to play', async () => {
+  current.minecraft = { ...linked, status: 'WHITELISTED', stale: true };
+  render(<MinecraftAccessPanel />);
+  await screen.findByText('Whitelist-Status bitte aktualisieren');
+  expect(screen.queryByText('Du bist bereit zum Spielen!')).not.toBeInTheDocument();
+});
+
+test('shows confirmed whitelist access as ready to play', async () => {
+  current.minecraft = { ...linked, status: 'WHITELISTED', stale: false };
+  render(<MinecraftAccessPanel />);
+  await screen.findByText('Du bist bereit zum Spielen!');
+  expect(screen.getByText('Whitelist: Freigeschaltet')).toBeInTheDocument();
+});

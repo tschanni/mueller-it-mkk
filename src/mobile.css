@@ -8,7 +8,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .task-buttons { min-width: 0; }
 .task-button { flex-shrink: 0; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-icon { color: #fff; }
-.app-icon span { background: #006060; padding: 2px 4px; }
+.app-icon span { background: transparent; padding: 2px 4px; }
 
 @media (max-width: 760px) {
   :root { --taskbar-height: calc(60px + env(safe-area-inset-bottom, 0px)); }

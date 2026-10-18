@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import './minecraft-access.css';
+import { publicAsset } from '../../utils/publicAsset';
+import { WhitelistIcon } from './WhitelistIcon';
 
 interface Status {
   enabled: boolean;
@@ -186,108 +188,47 @@ export function MinecraftAccess({
     ERROR: 'Synchronisationsfehler',
   };
   return (
-    <section className="mc98" aria-label="Minecraft-Zugang" aria-busy={busy}>
-      <h2>Minecraft-Zugang</h2>
-      {status && !status.enabled && (
-        <p role="status">Der Minecraft-Zugang ist noch nicht eingerichtet.</p>
-      )}
-      <p>
-        Discord:{' '}
-        {status
-          ? status.discord.linked
-            ? 'Verknüpft'
-            : 'Nicht verknüpft'
-          : 'Wird geladen …'}
-      </p>
-      {!status?.discord.linked &&
-        (onLinkDiscord ? (
-          <button onClick={onLinkDiscord}>Discord-Account verknüpfen</button>
-        ) : (
-          <a href={accountSettingsUrl}>Discord-Account verknüpfen</a>
-        ))}
-      <p>
-        Lahadde:{' '}
-        {membership === 'MEMBER'
-          ? 'Mitglied bestätigt (letzte Prüfung)'
-          : membership === 'NOT_MEMBER'
-            ? 'Kein Mitglied (letzte Prüfung)'
-            : 'Noch nicht bestätigt'}
-        {checkedAt && ` – ${new Date(checkedAt).toLocaleString('de-DE')}`}
-      </p>
-      <button
-        disabled={busy || !status?.enabled}
-        onClick={() => void act('/check-discord')}
-      >
-        Discord-Mitgliedschaft prüfen
-      </button>
-      <p>
-        Whitelist: {mc ? (labels[mc.status] ?? mc.status) : 'Nicht verknüpft'}
-        {mc?.stale && ' – Status veraltet, bitte aktualisieren'}
-      </p>
-      {mc && (
-        <dl>
-          <dt>Minecraft-Name</dt>
-          <dd>{mc.username}</dd>
-          <dt>UUID</dt>
-          <dd>{mc.uuid}</dd>
-          <dt>Letzter erfolgreicher Abgleich</dt>
-          <dd>
-            {mc.lastSyncedAt
-              ? new Date(mc.lastSyncedAt).toLocaleString('de-DE')
-              : 'Noch keiner'}
-          </dd>
-          {mc.lastErrorCode && (
-            <>
-              <dt>Fehlercode</dt>
-              <dd>{mc.lastErrorCode}</dd>
-            </>
-          )}
-        </dl>
-      )}
-      <p>Die öffentliche Namensauflösung bestätigt keinen Accountbesitz.</p>
-      <label>
-        Minecraft-Java-Benutzername{' '}
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={16}
-          pattern="[A-Za-z0-9_]{3,16}"
-          disabled={busy || Boolean(mc)}
-        />
-      </label>
-      <div className="mc98-actions">
-        <button
-          disabled={
-            busy ||
-            !status?.enabled ||
-            Boolean(mc) ||
-            !/^[A-Za-z0-9_]{3,16}$/.test(name)
-          }
-          onClick={() => void act('/link', { username: name })}
-        >
-          Minecraft-Account verknüpfen
-        </button>
-        <button
-          disabled={
-            busy ||
-            !status?.enabled ||
-            Boolean(mc?.removing) ||
-            (Boolean(status?.discord.linked) && !mc)
-          }
-          onClick={() => void act('/whitelist')}
-        >
-          Zur Whitelist hinzufügen
-        </button>
-        <button
-          disabled={busy || !status?.enabled || !mc}
-          onClick={() => void act('/unlink')}
-        >
-          Minecraft-Verknüpfung entfernen
-        </button>
-        <button disabled={busy} onClick={() => void act('')}>
-          Status aktualisieren
-        </button>
+    <section className="mc98" aria-label="Whitelist" aria-busy={busy}>
+      <header className="mc98-header">
+        <img src={publicAsset('retro-minecraft.svg')} alt="" />
+        <div><span className="mc98-eyebrow">MINECRAFT JAVA EDITION</span><h2>Whitelist</h2><p>Dein Profil. Dein Zugang. Bereit zum Mitspielen.</p></div>
+        <button disabled={busy} onClick={() => void act('')}><WhitelistIcon kind="refresh" />Status aktualisieren</button>
+      </header>
+      <div className={'mc98-summary mc98-tone-' + (!status ? 'neutral' : !status.enabled || mc?.status === 'ERROR' ? 'error' : mc?.stale || mc?.removing ? 'pending' : mc?.status === 'WHITELISTED' ? 'success' : 'neutral')} role="status" aria-live="polite">
+        <span className="mc98-summary-icon"><WhitelistIcon kind={mc?.status === 'WHITELISTED' && !mc.stale && !mc.removing ? 'check' : 'shield'} /></span>
+        <div><strong>{!status ? 'Status wird geladen …' : !status.enabled ? 'Whitelist derzeit nicht verfügbar' : mc?.removing ? 'Verknüpfung wird entfernt' : mc?.stale ? 'Whitelist-Status bitte aktualisieren' : mc?.status === 'WHITELISTED' ? 'Du bist bereit zum Spielen!' : mc?.status === 'ERROR' ? 'Abgleich fehlgeschlagen' : mc ? 'Dein Profil ist verknüpft' : 'Dein Platz auf dem Server wartet'}</strong>
+        <p>{!status ? 'Dein Zugang wird geprüft.' : mc?.removing ? 'Bitte warte, bis die Entfernung abgeschlossen ist.' : !status.enabled ? 'Bitte versuche es später erneut.' : mc?.stale ? 'Der letzte bekannte Status ist veraltet. Aktualisiere ihn vor dem Beitritt.' : mc?.status === 'WHITELISTED' ? 'Dein Minecraft-Profil ist auf der Whitelist freigeschaltet.' : 'Verbinde Discord und dein Minecraft-Profil, um deinen Zugang freizuschalten.'}</p></div>
       </div>
+      {status && !status.enabled && <p role="status">Der Minecraft-Zugang ist noch nicht eingerichtet.</p>}
+      <div className="mc98-steps">
+        <section className="mc98-step">
+          <div className="mc98-step-heading"><span className="mc98-step-icon"><WhitelistIcon kind="discord" /></span><div><span className="mc98-eyebrow">SCHRITT 01</span><h3>Discord verbinden</h3></div></div>
+          <p>Dein Discord-Konto und die Mitgliedschaft auf Lahadde sind Voraussetzung.</p>
+          <p className={'mc98-badge mc98-tone-' + (status?.discord.linked ? 'success' : 'neutral')}>Discord: {status ? status.discord.linked ? 'Verknüpft' : 'Nicht verknüpft' : 'Wird geladen …'}</p>
+          {!status?.discord.linked && (onLinkDiscord ? <button disabled={!status || busy} onClick={onLinkDiscord}>Discord-Account verknüpfen</button> : <a className="mc98-button" href={accountSettingsUrl}>Discord-Account verknüpfen</a>)}
+          <div className="mc98-membership"><p className={'mc98-badge mc98-tone-' + (membership === 'MEMBER' ? 'success' : membership === 'NOT_MEMBER' ? 'error' : 'pending')}>Lahadde: {membership === 'MEMBER' ? 'Mitglied bestätigt (letzte Prüfung)' : membership === 'NOT_MEMBER' ? 'Kein Mitglied (letzte Prüfung)' : 'Noch nicht bestätigt'}</p>
+          {checkedAt && <small>Geprüft: {new Date(checkedAt).toLocaleString('de-DE')}</small>}</div>
+          <button disabled={busy || !status?.enabled} onClick={() => void act('/check-discord')}>Discord-Mitgliedschaft prüfen</button>
+        </section>
+        <section className="mc98-step">
+          <div className="mc98-step-heading"><span className="mc98-step-icon"><WhitelistIcon kind="profile" /></span><div><span className="mc98-eyebrow">SCHRITT 02</span><h3>Minecraft-Profil</h3></div></div>
+          <p>Trage den Namen deines Minecraft-Java-Profils ein.</p>
+          <label htmlFor="mc98-username">Minecraft-Java-Benutzername</label>
+          <input id="mc98-username" value={name} onChange={e => setName(e.target.value)} maxLength={16} pattern="[A-Za-z0-9_]{3,16}" placeholder={mc?.username || 'z. B. Steve_123'} disabled={busy || Boolean(mc)} aria-describedby="mc98-name-hint" />
+          <small id="mc98-name-hint">3–16 Zeichen: Buchstaben, Zahlen und Unterstriche.</small>
+          {mc ? <div className="mc98-profile"><WhitelistIcon kind="check" /><div><strong>{mc.username}</strong><small>Profil verknüpft</small></div></div> : <button disabled={busy || !status?.enabled || !/^[A-Za-z0-9_]{3,16}$/.test(name)} onClick={() => void act('/link', { username: name })}>Minecraft-Account verknüpfen</button>}
+          <p className="mc98-note">Die öffentliche Namensauflösung bestätigt keinen Accountbesitz.</p>
+        </section>
+        <section className="mc98-step">
+          <div className="mc98-step-heading"><span className="mc98-step-icon"><WhitelistIcon kind="shield" /></span><div><span className="mc98-eyebrow">SCHRITT 03</span><h3>Zugang freischalten</h3></div></div>
+          <p>Alles verbunden? Füge dein Profil zur Server-Whitelist hinzu.</p>
+          <p className={'mc98-badge mc98-tone-' + (mc?.removing || mc?.stale || mc?.status === 'PENDING' ? 'pending' : mc?.status === 'WHITELISTED' ? 'success' : mc?.status === 'ERROR' ? 'error' : 'neutral')}>Whitelist: {mc?.removing ? 'Wird entfernt' : mc ? (labels[mc.status] ?? mc.status) : 'Nicht verknüpft'}{mc?.stale && ' – Status veraltet, bitte aktualisieren'}</p>
+          <button className="mc98-primary" disabled={busy || !status?.enabled || Boolean(mc?.removing) || (Boolean(status?.discord.linked) && !mc)} onClick={() => void act('/whitelist')}><WhitelistIcon kind="shield" />Zur Whitelist hinzufügen</button>
+          {busy && <p role="status">Aktion wird ausgeführt …</p>}
+          {mc && <dl className="mc98-sync"><dt>Letzter erfolgreicher Abgleich</dt><dd>{mc.lastSyncedAt ? new Date(mc.lastSyncedAt).toLocaleString('de-DE') : 'Noch keiner'}</dd>{mc.lastErrorCode && <><dt>Fehlercode</dt><dd>{mc.lastErrorCode}</dd></>}</dl>}
+        </section>
+      </div>
+      {mc && <footer className="mc98-account"><div><strong>Verknüpftes Profil: {mc.username}</strong><span>UUID: <span>{mc.uuid}</span></span></div><button disabled={busy || !status?.enabled} onClick={() => void act('/unlink')}>Minecraft-Verknüpfung entfernen</button></footer>}
       <dialog
         className="mc98 mc98-dialog"
         ref={dialog}
@@ -297,7 +238,7 @@ export function MinecraftAccess({
         <h2 id="mc98-error-title">
           {needsDiscord
             ? 'Discord-Verknüpfung erforderlich'
-            : 'Minecraft-Zugang: Fehler'}
+            : 'Whitelist: Fehler'}
         </h2>
         <p role="alert">
           {needsDiscord

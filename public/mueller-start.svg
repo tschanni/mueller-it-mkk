@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
+  <!-- Compact brand mark: CRT monitor, blue screen and service tools. -->
+  <path d="M2 5h21v19H2z" fill="#303b3e" stroke="#172126" stroke-linejoin="round"/>
+  <path d="M5 3h21v20H5z" fill="#d9d8c5" stroke="#172126" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M6 4h19v1H7v17H6z" fill="#fffdec"/>
+  <path d="M8 6h15v13H8z" fill="#087abd" stroke="#374d56"/>
+  <path d="M9 7h13v5H9z" fill="#159ce0"/>
+  <path d="M10 10h2V8h3v2h2v2h-7z" fill="#e9faff"/>
+  <path d="M11 24h8v3h-8z" fill="#747f7e" stroke="#172126"/>
+  <path d="M7 27h16v2H7z" fill="#b5b9af" stroke="#172126"/>
+  <path d="M8 21h3" stroke="#cf2920" stroke-width="1.5"/>
+  <path d="M11 21h3" stroke="#31833f" stroke-width="1.5"/>
+  <path d="m22 17-4-4a4 4 0 0 1-4-5l3 3 2-2-3-3a4 4 0 0 1 5 4l5 5" fill="#bccbd0" stroke="#172126" stroke-width="1.3" stroke-linejoin="round"/>
+  <path d="m21 9 5-5 2-1 1 1-1 2-5 5" fill="#dceaf0" stroke="#172126" stroke-width="1.3" stroke-linejoin="round"/>
+  <path d="m22 10 2 2-2 3-2-2z" fill="#f65342" stroke="#791b19"/>
+  <path d="m20 12 3 3-8 9c-2 2-6-2-4-4z" fill="#d82420" stroke="#172126" stroke-width="1.3" stroke-linejoin="round"/>
+  <path d="m13 20 6-6" stroke="#ff8973" stroke-width="1.5"/>
+</svg>

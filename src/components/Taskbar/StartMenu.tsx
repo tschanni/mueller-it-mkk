@@ -26,7 +26,7 @@ export function StartMenu() {
   }} onBlur={event => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) setOpen(false); }}>
     <button ref={start} className="start-button" aria-label="Start" aria-haspopup="menu" aria-expanded={open} aria-controls={open ? 'desktop-start-menu' : undefined}
       onClick={() => setOpen(value => !value)} onKeyDown={event => { if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setOpen(true); } }}>
-      <span className="start-flag" aria-hidden="true" />Start
+      <img className="start-brand-icon" src={publicAsset('/mueller-start.svg')} alt="" />Start
     </button>
     {open && <div id="desktop-start-menu" className="start-menu" role="menu" aria-label="Startmenü" ref={menu} onKeyDown={event => {
       const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));

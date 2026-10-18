@@ -16,3 +16,7 @@
 .gsm-card-message p{margin:0}.gsm-card-message p+p{margin-top:6px}
 .gsm-card-footer{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px}.gsm-card-footer span{color:#444;overflow-wrap:anywhere}
 @media(max-width:500px){.gsm-card{gap:10px;padding:10px}.gsm-card-icon{width:48px}.gsm-card-icon img{width:48px;height:48px}.gsm .gsm-card-facts{grid-template-columns:1fr}.gsm-card-footer button{width:100%}}
+
+.gsm-whitelist-entry{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 14px;padding:10px 12px;background:#dfdfdf;box-shadow:inset 1px 1px #808080,inset -1px -1px #fff;border-left:3px solid #000080}
+.gsm-whitelist-entry strong,.gsm-whitelist-entry span{display:block}.gsm-whitelist-entry strong{color:#000080;margin-bottom:3px}.gsm-whitelist-entry button{background:#000080;color:#fff;padding:8px 14px;white-space:normal}.gsm-whitelist-entry button span{display:inline}
+@media(max-width:500px){.gsm-whitelist-entry button{width:100%}}

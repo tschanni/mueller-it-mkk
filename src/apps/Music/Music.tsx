@@ -32,10 +32,6 @@ export const Music: React.FC = () => {
       .catch((e) => console.error('Failed to load music.json', e));
   }, []);
 
-  useEffect(() => {
-    // autoplay when current changes by re-rendering iframe with autoplay=1
-  }, [current]);
-
   return (
     <div className="music-app">
       {!current && (
@@ -62,11 +58,15 @@ export const Music: React.FC = () => {
               title={`${current.artist} - ${current.title}`}
               width="100%"
               height="360"
-              src={`https://www.youtube.com/embed/${ytIdFromUrl(current.youtube)}?autoplay=1`}
+              src={`https://www.youtube.com/embed/${ytIdFromUrl(current.youtube)}?autoplay=1&playsinline=1`}
+              referrerPolicy="strict-origin-when-cross-origin"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />
           </div>
+          <a href={`https://www.youtube.com/watch?v=${ytIdFromUrl(current.youtube)}`} target="_blank" rel="noopener noreferrer">
+            Auf YouTube öffnen
+          </a>
         </div>
       )}
     </div>

@@ -196,11 +196,26 @@ export const Pong: React.FC = () => {
   return (
     <div className="pong-container">
       <div className="pong-toolbar">
-        <button className="btn" onClick={startGame}>Start</button>
+        <button className="btn" onClick={() => running ? setRunning(false) : void startGame()}>{running ? 'Pause' : 'Start'}</button>
         <button className="btn" onClick={resetGame}>Reset</button>
         <div className="hint">Left: W/S, Right: ↑/↓</div>
       </div>
-      <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="pong-canvas" />
+      <p id="pong-touch-hint">Touch: Auf jeder Spielfeldhälfte ziehen, um den jeweiligen Schläger zu bewegen.</p>
+      <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="pong-canvas"
+        aria-label={`Pong, Spielstand ${scores.left} zu ${scores.right}`}
+        aria-describedby="pong-touch-hint"
+        onPointerDown={event => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          const rect = event.currentTarget.getBoundingClientRect();
+          const side = event.clientX - rect.left < rect.width / 2 ? 'leftY' : 'rightY';
+          stateRef.current[side] = Math.max(0, Math.min(HEIGHT - PADDLE_HEIGHT, (event.clientY - rect.top) / rect.height * HEIGHT - PADDLE_HEIGHT / 2));
+        }}
+        onPointerMove={event => {
+          if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          const side = event.clientX - rect.left < rect.width / 2 ? 'leftY' : 'rightY';
+          stateRef.current[side] = Math.max(0, Math.min(HEIGHT - PADDLE_HEIGHT, (event.clientY - rect.top) / rect.height * HEIGHT - PADDLE_HEIGHT / 2));
+        }} />
       {/* WebAudio generates sounds programmatically */}
     </div>
   );

@@ -18,6 +18,7 @@ export const Taskbar: React.FC = () => {
             className={`task-button ${focusedId === w.id ? 'active' : ''}`}
             onClick={() => focusedId === w.id && !w.isMinimized ? minimizeWindow(w.id) : restoreWindow(w.id)}
             title={w.title}
+            aria-pressed={focusedId === w.id && !w.isMinimized}
           >
             {w.title}
           </button>

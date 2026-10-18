@@ -189,6 +189,17 @@ async function main() {
     check('320px account window stays entirely inside the viewport', await evaluate('(() => { const r = document.querySelector(".auth-window").getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight - 34; })()'));
     const mobile = await command('Page.captureScreenshot', { format: 'png' });
     await fs.writeFile(path.join(artifacts, 'account-mobile.png'), Buffer.from(mobile.data, 'base64'));
+    for (const width of [320, 390, 760]) {
+      await command('Emulation.setDeviceMetricsOverride', { width, height: 740, deviceScaleFactor: 1, mobile: false });
+      check(width + 'px account content fits without horizontal scrolling', await evaluate('(() => { const body = document.querySelector(".auth-window > .window-body"); return body.scrollWidth <= body.clientWidth + 1; })()'));
+      check(width + 'px title controls have 44px touch targets', await evaluate('Array.from(document.querySelectorAll(".auth-window .title-bar-controls button")).every(button => { const r = button.getBoundingClientRect(); return r.width >= 44 && r.height >= 44; })'));
+    }
+    await command('Emulation.setDeviceMetricsOverride', { width: 320, height: 740, deviceScaleFactor: 1, mobile: false });
+    for (const title of ['Taschenrechner', 'Bilder', 'Musik', 'Pong', 'Gameserver-Manager']) {
+      await evaluate(`Array.from(document.querySelectorAll('.app-icon')).find(button => button.title === ${JSON.stringify(title)}).click()`);
+      check(title + ' mobile window and content fit', await evaluate('(() => { const windows = Array.from(document.querySelectorAll(".window:not(.hidden)")); const win = windows.sort((a, b) => Number(b.style.zIndex) - Number(a.style.zIndex))[0]; const r = win.getBoundingClientRect(); const body = win.querySelector(".window-body"); return r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight - 60 && body.scrollWidth <= body.clientWidth + 1; })()'));
+      await evaluate('(() => { const windows = Array.from(document.querySelectorAll(".window:not(.hidden)")); windows.sort((a, b) => Number(b.style.zIndex) - Number(a.style.zIndex))[0].querySelector("button[aria-label=Close]").click(); })()');
+    }
     await command('Emulation.setDeviceMetricsOverride', { width: 1100, height: 850, deviceScaleFactor: 1, mobile: false });
     fault = '401'; await evaluate('window.dispatchEvent(new Event("focus"))');
     await until(text('HTTP 401'), 'invalid session notice');

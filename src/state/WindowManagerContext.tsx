@@ -33,15 +33,7 @@ const WindowManagerContext = createContext<WindowManagerContextValue | undefined
 let idCounter = 1;
 
 export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [windows, setWindows] = useState<Win98Window[]>([{
-    id: String(idCounter++),
-    title: 'Müller IT MKK',
-    app: 'company',
-    x: 80,
-    y: 100,
-    isMinimized: false,
-    zIndex: 1,
-  }]);
+  const [windows, setWindows] = useState<Win98Window[]>([]);
   const [topZ, setTopZ] = useState(1);
   const [focusedId, setFocusedId] = useState<string | null>(windows[0]?.id ?? null);
 

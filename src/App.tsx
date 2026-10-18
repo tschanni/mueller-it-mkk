@@ -4,6 +4,7 @@ import { WindowManagerProvider } from './state/WindowManagerContext';
 import { Desktop } from './components/Desktop/Desktop';
 import { ServerCacheProvider } from './apps/GameserverManager/ServerCache';
 import { AuthProvider } from './auth/AuthContext';
+import './mobile.css';
 
 function App() {
   return (

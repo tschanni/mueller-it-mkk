@@ -34,7 +34,7 @@ export const WinWindow: React.FC<{ win: Win98Window }> = ({ win }) => {
   }, [dragging, moveWindow, win.id]);
 
   const onMouseDownTitle = (e: React.MouseEvent) => {
-    if (win.isMaximized || (e.target as HTMLElement).closest('button')) return;
+    if (window.innerWidth <= 760 || win.isMaximized || (e.target as HTMLElement).closest('button')) return;
     const rect = ref.current?.getBoundingClientRect();
     offsetRef.current = {
       x: e.clientX - (rect?.left ?? 0),
@@ -50,7 +50,7 @@ export const WinWindow: React.FC<{ win: Win98Window }> = ({ win }) => {
     top: win.isMaximized ? 0 : Math.min(win.y, Math.max(0, window.innerHeight - 100)),
     zIndex: win.zIndex,
     width: win.isMaximized ? '100%' : win.width,
-    height: win.isMaximized ? 'calc(100% - 34px)' : win.height,
+    height: win.isMaximized ? 'calc(100% - var(--taskbar-height, 42px))' : win.height,
   } as React.CSSProperties;
 
   return (
@@ -61,6 +61,7 @@ export const WinWindow: React.FC<{ win: Win98Window }> = ({ win }) => {
       className={classNames('window', { hidden: win.isMinimized, 'gameserver-window': win.app === 'gameservers', 'auth-window': win.app.startsWith('auth-'), maximized: win.isMaximized })}
       style={style}
       onMouseDown={() => focusWindow(win.id)}
+      onFocus={() => focusWindow(win.id)}
     >
       <div className={classNames('title-bar', { focused: isFocused })} onMouseDown={onMouseDownTitle} onDoubleClick={() => maximizeWindow(win.id)}>
         <div className="title-bar-text">{win.title}</div>

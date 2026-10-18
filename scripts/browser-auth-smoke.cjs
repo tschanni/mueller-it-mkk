@@ -206,7 +206,7 @@ async function main() {
     await command('Emulation.setDeviceMetricsOverride', { width: 1100, height: 850, deviceScaleFactor: 1, mobile: false });
     // Minecraft self-service: real dialog rendering, all backend calls intercepted.
     await evaluate("Array.from(document.querySelectorAll('.app-icon')).find(button => button.title === 'Gameserver-Manager').click()");
-    await click('Minecraft-Zugang'); await until(text('Discord: Nicht verknüpft'), 'Minecraft status');
+    await click('Whitelist'); await until(text('Discord: Nicht verknüpft'), 'Minecraft status');
     await click('Zur Whitelist hinzufügen');
     await until('!!document.querySelector(".mc98-dialog[open]")', 'Minecraft Discord modal');
     check('Minecraft opens required Discord modal', await evaluate(text('Discord-Verknüpfung erforderlich')));

@@ -1,4 +1,51 @@
-# Minecraft-Zugang
+# Minecraft-Whitelist
+
+## RCON-Vertrag und Frontend-Anpassung (18.10.2026)
+
+Vor der Implementierung wurden im lokalen Backend `C:/Dev/Gameserver_Dashboard`
+die Dateien `docs/MINECRAFT_RCON_SYNC_FIX.md`,
+`src/minecraft/minecraft.service.ts` und `src/minecraft/rcon.service.ts` gelesen.
+Für diese Integration bestehen keine offenen Vertragsfragen. Die Referenzkomponente
+unter `docs/frontend` des Backends ist laut Backend-Dokumentation veraltet.
+
+- GET liefert den gespeicherten Zustand, keinen unmittelbaren RCON-Listenaufruf.
+  „Status erneut prüfen“ lädt diesen Zustand erneut; der Backend-Worker führt
+  den tatsächlichen Abgleich aus. Es gibt keinen neuen Prüfendpunkt.
+- `minecraft.whitelistState`: `WHITELISTED`, `NOT_WHITELISTED`, `UNKNOWN`.
+  Fehlende oder unbekannte Werte und veraltete Daten werden vorsichtig als unbekannt
+  angezeigt. `minecraft.status` wird nicht mehr als Whitelist-Beobachtung verwendet.
+- POST `/whitelist` und `/unlink` liefern zusätzlich `operation` mit `action`
+  (`ADD`, `REMOVE`), `outcome` (`SUCCEEDED`, `ALREADY_IN_STATE`, `NOT_REQUIRED`,
+  `NOT_ATTEMPTED`), `whitelistState` und `syncErrorCode`. HTTP 201 allein ist kein
+  Nachweis einer Freischaltung. Das Aufrufergebnis bleibt beim folgenden GET erhalten.
+- `minecraft.lastCommand` ist null oder enthält `action`, `outcome`
+  (`SUCCEEDED`, `ALREADY_IN_STATE`, `FAILED`, `UNKNOWN`) und `at`.
+  Es wird als historischer letzter Schreibbefehl getrennt vom aktuellen Zustand gezeigt.
+- `syncErrorCode` beschreibt den Listenabgleich, `lastErrorCode` den
+  Verarbeitungsfehler. Codes stehen nur im aufklappbaren Diagnosebereich.
+- HTTP 503 `RCON_COMMAND_FAILED` bedeutet Ablehnung; `RCON_UNAVAILABLE` und
+  `RCON_COMMAND_UNCONFIRMED` bedeuten unbestätigte Ausführung. Nach Fehlern wird
+  nur gelesen, niemals automatisch erneut geschrieben.
+- Bestätigter Schreibbefehl plus unbekannte Beobachtung ergibt eine neutrale
+  Bestätigung mit Hinweis auf die fehlende Statusprüfung, keinen Fehlerdialog.
+  Dies gilt auch für REMOVE, solange `removing=true` und die Zuordnung reserviert bleibt.
+  Bei `minecraft=null` wird die Entfernung anhand von `operation` eingeordnet.
+
+Eine synchrone Anfragesperre verhindert doppelte Aktionen. Während der Verarbeitung
+sind die Aktionen deaktiviert und ein Ladehinweis sichtbar. Das bestehende responsive
+Layout bleibt erhalten. Tests prüfen die drei Zustände, alle vier Operation-Outcomes,
+HTTP-Befehlsfehler, unbekannte Ausführung, POST-Bestätigung trotz GET-Ausfall,
+persistierte Remove-Bestätigung und doppelte Klicks. Alle Backend-Antworten werden
+lokal simuliert; keine produktiven RCON-Befehle werden für Tests ausgeführt.
+
+Verifikation dieser Anpassung: vollständige Suite mit 179 Tests erfolgreich;
+anschließend zusätzlicher Mismatch-Test ergänzt und alle 29 MinecraftAccess-Tests
+erneut erfolgreich. Typecheck und Produktionsbuild erfolgreich. Der zusätzliche
+Browserlauf `npm run test:browser -- --minecraft-only` scheiterte bei `Page.enable`
+mit einem CDP-Timeout, bevor UI-Prüfungen stattfanden. Die vorhandenen früheren
+Browserartefakte wurden nicht durch diesen fehlgeschlagenen Lauf ersetzt.
+
+## Ursprüngliche Integration
 
 Der Gameserver-Manager enthält einen zusätzlichen Reiter „Minecraft-Zugang“.
 MinecraftAccessPanel nutzt die vorhandene Better-Auth-Sitzung und öffnet Anmeldung

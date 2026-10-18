@@ -3,14 +3,19 @@ import './minecraft-access.css';
 import { publicAsset } from '../../utils/publicAsset';
 import { WhitelistIcon } from './WhitelistIcon';
 import { MinecraftProfile } from './MinecraftProfile';
+import { WhitelistState, WhitelistOperation, LastCommand, commandMessage, unknownWhitelist } from './whitelistStatus';
 
 interface Status {
+  operation?: WhitelistOperation;
   enabled: boolean;
   discord: { linked: boolean; membership: string };
   minecraft: null | {
     username: string;
     uuid: string;
     status: string;
+    whitelistState?: WhitelistState;
+    syncErrorCode?: string | null;
+    lastCommand?: LastCommand | null;
     linkedAt: string;
     lastSyncedAt: string | null;
     lastErrorCode: string | null;
@@ -47,6 +52,10 @@ export function MinecraftAccess({
   const [status, setStatus] = useState<Status | null>(null);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
+  const [operation, setOperation] = useState<WhitelistOperation | null>(null);
+  const [readFailed, setReadFailed] = useState(false);
+  const [commandError, setCommandError] = useState<string | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [membership, setMembership] = useState('UNKNOWN');
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
@@ -123,18 +132,24 @@ export function MinecraftAccess({
     }
   }, [error]);
   async function act(path: string, body: object = {}) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
+    setCommandError(null);
+    setOperation(null);
+    setReadFailed(false);
+    let writeAccepted = false;
     try {
       if (path === '/check-discord') {
         const result = await api(path, body);
         setMembership(result.membership);
         setCheckedAt(result.checkedAt);
       } else if (path) {
-        setStatus(await api(path, body));
-        if (path === '/whitelist') {
-          setMembership('MEMBER');
-          setCheckedAt(new Date().toISOString());
-        }
+        const result: Status = await api(path, body);
+        setStatus(result);
+        setOperation(result.operation ?? null);
+        writeAccepted = true;
+
       }
       const fresh: Status = await api();
       setStatus(fresh);
@@ -150,12 +165,15 @@ export function MinecraftAccess({
               message:
                 'Die Verbindung ist fehlgeschlagen. Bitte aktualisiere den Status.',
             };
-      setError({
-        code: failure.code,
-        message:
-          failure.message ||
-          'Die Verbindung ist fehlgeschlagen. Bitte aktualisiere den Status.',
-      });
+      if (writeAccepted) {
+        setReadFailed(true);
+      } else if (failure.code?.startsWith('RCON_') || failure.code === 'MINECRAFT_SYNC_FAILED' || ((path === '/whitelist' || path === '/unlink') && !failure.code)) {
+        setCommandError(failure.code === 'RCON_COMMAND_FAILED'
+          ? 'Der Minecraft-Server hat die Änderung abgelehnt. Prüfe den Status, bevor du es erneut versuchst.'
+          : 'Die Ausführung deiner Anfrage konnte nicht bestätigt werden. Bitte prüfe zuerst den Status.');
+      } else {
+        setError({ code: failure.code, message: failure.message });
+      }
       if (failure.code === 'DISCORD_NOT_IN_GUILD') {
         setMembership('NOT_MEMBER');
         setCheckedAt(new Date().toISOString());
@@ -170,10 +188,12 @@ export function MinecraftAccess({
       // Errors may follow an applied command: read persisted status, never retry a write blindly.
       try {
         setStatus(await api());
+        setReadFailed(false);
       } catch {
-        /* Keep the original error. */
+        setReadFailed(true);
       }
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   }
@@ -183,11 +203,12 @@ export function MinecraftAccess({
   }
   const needsDiscord = error?.code === 'DISCORD_NOT_LINKED';
   const mc = status?.minecraft;
-  const labels: Record<string, string> = {
-    PENDING: 'Ausstehend',
-    WHITELISTED: 'Freigeschaltet',
-    ERROR: 'Synchronisationsfehler',
-  };
+  const observed = readFailed || mc?.stale ? 'UNKNOWN' : mc?.whitelistState ?? operation?.whitelistState ?? 'UNKNOWN';
+  const state: WhitelistState = observed === 'WHITELISTED' || observed === 'NOT_WHITELISTED' ? observed : 'UNKNOWN';
+  const stateLabel = state === 'WHITELISTED' ? 'Freigeschaltet' : state === 'NOT_WHITELISTED' ? 'Nicht freigeschaltet' : 'Unbekannt';
+  const command = operation ?? mc?.lastCommand;
+  const resultMessage = commandError ?? commandMessage(command, state);
+  const syncError = mc ? mc.syncErrorCode : operation?.syncErrorCode;
   return (
     <section className="mc98" aria-label="Whitelist" aria-busy={busy}>
       <header className="mc98-header">
@@ -195,11 +216,13 @@ export function MinecraftAccess({
         <div><span className="mc98-eyebrow">MINECRAFT JAVA EDITION</span><h2>Whitelist</h2><p>Befolge die nachfolgenden Schritte, um deinen Zugang zur Minecraft-Welt freizuschalten.</p></div>
         <button disabled={busy} onClick={() => void act('')}><WhitelistIcon kind="refresh" />Status aktualisieren</button>
       </header>
-      <div className={'mc98-summary mc98-tone-' + (!status ? 'neutral' : !status.enabled || mc?.status === 'ERROR' ? 'error' : mc?.stale || mc?.removing ? 'pending' : mc?.status === 'WHITELISTED' ? 'success' : 'neutral')} role="status" aria-live="polite">
-        <span className="mc98-summary-icon"><WhitelistIcon kind={mc?.status === 'WHITELISTED' && !mc.stale && !mc.removing ? 'check' : 'shield'} /></span>
-        <div><strong>{!status ? 'Status wird geladen …' : !status.enabled ? 'Whitelist derzeit nicht verfügbar' : mc?.removing ? 'Verknüpfung wird entfernt' : mc?.stale ? 'Whitelist-Status bitte aktualisieren' : mc?.status === 'WHITELISTED' ? 'Du bist bereit zum Spielen!' : mc?.status === 'ERROR' ? 'Abgleich fehlgeschlagen' : mc ? 'Dein Profil ist verknüpft' : 'Dein Platz auf dem Server wartet'}</strong>
-        <p>{!status ? 'Dein Zugang wird geprüft.' : mc?.removing ? 'Bitte warte, bis die Entfernung abgeschlossen ist.' : !status.enabled ? 'Bitte versuche es später erneut.' : mc?.stale ? 'Der letzte bekannte Status ist veraltet. Aktualisiere ihn vor dem Beitritt.' : mc?.status === 'WHITELISTED' ? 'Dein Minecraft-Profil ist auf der Whitelist freigeschaltet.' : 'Verbinde Discord und dein Minecraft-Profil, um deinen Zugang freizuschalten.'}</p></div>
+      <div className={'mc98-summary mc98-tone-' + (state === 'WHITELISTED' ? 'success' : 'neutral')} role="status" aria-live="polite">
+        <span className="mc98-summary-icon"><WhitelistIcon kind={state === 'WHITELISTED' ? 'check' : 'shield'} /></span>
+        <div><strong>{!status ? 'Status wird geladen …' : !status.enabled ? 'Whitelist derzeit nicht verfügbar' : state === 'WHITELISTED' ? 'Du bist bereit zum Spielen!' : state === 'NOT_WHITELISTED' ? 'Dein Profil ist noch nicht freigeschaltet' : 'Whitelist-Status unbekannt'}</strong>
+        <p>{state === 'UNKNOWN' ? unknownWhitelist : state === 'WHITELISTED' ? 'Dein Minecraft-Account ist auf der Whitelist freigeschaltet.' : 'Du kannst die Freischaltung deines Minecraft-Accounts anfragen.'}</p></div>
       </div>
+      {resultMessage && <div className="mc98-command-result" role="status"><strong>{operation || commandError ? 'Ergebnis der Anfrage' : 'Letzter Schreibbefehl'}</strong><p>{resultMessage}</p></div>}
+      {syncError && state !== 'UNKNOWN' && <p role="status">Der beobachtete Zustand stimmt noch nicht mit dem angefragten Ziel überein. Bitte prüfe den Status erneut.</p>}
       {status && !status.enabled && <p role="status">Der Minecraft-Zugang ist noch nicht eingerichtet.</p>}
       <div className="mc98-steps">
         <section className="mc98-step">
@@ -223,13 +246,15 @@ export function MinecraftAccess({
         <section className="mc98-step">
           <div className="mc98-step-heading"><span className="mc98-step-icon"><WhitelistIcon kind="shield" /></span><div><span className="mc98-eyebrow">SCHRITT 03</span><h3>Zugang freischalten</h3></div></div>
           <p>Alles verbunden? Füge dein Profil zur Server-Whitelist hinzu.</p>
-          <p className={'mc98-badge mc98-tone-' + (mc?.removing || mc?.stale || mc?.status === 'PENDING' ? 'pending' : mc?.status === 'WHITELISTED' ? 'success' : mc?.status === 'ERROR' ? 'error' : 'neutral')}>Whitelist: {mc?.removing ? 'Wird entfernt' : mc ? (labels[mc.status] ?? mc.status) : 'Nicht verknüpft'}{mc?.stale && ' – Status veraltet, bitte aktualisieren'}</p>
-          <button className="mc98-primary" disabled={busy || !status?.enabled || Boolean(mc?.removing) || (Boolean(status?.discord.linked) && !mc)} onClick={() => void act('/whitelist')}><WhitelistIcon kind="shield" />Zur Whitelist hinzufügen</button>
+          <p className={'mc98-badge mc98-tone-' + (state === 'WHITELISTED' ? 'success' : 'neutral')}>Whitelist: {stateLabel}</p>
+          {state === 'UNKNOWN' && <button disabled={busy} onClick={() => void act('')}>Status erneut prüfen</button>}
+          {state !== 'WHITELISTED' && <button className="mc98-primary" disabled={busy || !status?.enabled || Boolean(mc?.removing) || (Boolean(status?.discord.linked) && !mc)} onClick={() => void act('/whitelist')}><WhitelistIcon kind="shield" />Zur Whitelist hinzufügen</button>}
           {busy && <p role="status">Aktion wird ausgeführt …</p>}
-          {mc && <dl className="mc98-sync"><dt>Letzter erfolgreicher Abgleich</dt><dd>{mc.lastSyncedAt ? new Date(mc.lastSyncedAt).toLocaleString('de-DE') : 'Noch keiner'}</dd>{mc.lastErrorCode && <><dt>Fehlercode</dt><dd>{mc.lastErrorCode}</dd></>}</dl>}
+          {mc && <dl className="mc98-sync"><dt>Letzter erfolgreicher Abgleich</dt><dd>{mc.lastSyncedAt ? new Date(mc.lastSyncedAt).toLocaleString('de-DE') : 'Noch keiner'}</dd></dl>}
         </section>
       </div>
       {mc && <footer className="mc98-account"><MinecraftProfile uuid={mc.uuid} username={mc.username} /><button disabled={busy || !status?.enabled} onClick={() => void act('/unlink')}>Minecraft-Verknüpfung entfernen</button></footer>}
+      {(mc?.lastErrorCode || syncError || command) && <details className="mc98-diagnostics"><summary>Technische Diagnose</summary><dl><dt>Whitelist-Zustand</dt><dd>{state}</dd>{command && <><dt>Befehlsresultat</dt><dd>{command.action}: {command.outcome}</dd></>}{syncError && <><dt>Statusabgleich</dt><dd>{syncError}</dd></>}{mc?.lastErrorCode && <><dt>Fehlercode</dt><dd>{mc.lastErrorCode}</dd></>}</dl></details>}
       <dialog
         className="mc98 mc98-dialog"
         ref={dialog}

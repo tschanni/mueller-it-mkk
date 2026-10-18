@@ -48,6 +48,8 @@
 .mc98-skin img.mc98-skin-hat{left:-320px}
 .mc98-skin-placeholder{display:grid;place-items:center}.mc98-skin-placeholder svg{width:32px;height:32px;color:#777}
 .mc98-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.mc98-command-result{padding:12px;margin-bottom:14px;background:#e2e6ed;color:#253857;border:1px solid #9ca6b7;overflow-wrap:anywhere}
+.mc98-command-result p{margin-top:4px}.mc98-diagnostics{margin-top:14px;padding:10px;background:#dfdfdf;overflow-wrap:anywhere}.mc98-diagnostics summary{cursor:pointer}
 .mc98-dialog{width:min(480px,92vw);background:#c0c0c0;padding:16px;border:2px solid;border-color:#fff #404040 #404040 #fff;box-shadow:1px 1px #000}
 .mc98-dialog h2{font-size:14px;background:#000080;color:#fff;padding:6px;margin:-13px -13px 14px}
 .mc98-dialog::backdrop{background:#0006}

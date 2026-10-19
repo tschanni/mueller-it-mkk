@@ -69,7 +69,7 @@ export function MinecraftProfile({ uuid, username }: { uuid: string; username: s
       <img src={skin} alt={`Minecraft-Skin von ${displayName}`} referrerPolicy="no-referrer" onError={() => setBrokenSkin(skin)} />
     </a> : <div className="mc98-skin-placeholder" aria-hidden="true"><WhitelistIcon kind="profile" /></div>}
     <div><strong>Verknüpftes Profil: {displayName}</strong><span>UUID: <span>{uuid}</span></span>
-      <small role="status">{!current ? 'Minecraft-Profil wird geladen …' : current.failed ? 'Minecraft-Profil derzeit nicht verfügbar. Gespeicherte Profildaten werden angezeigt.' : brokenSkin && (brokenSkin === renderUrl || brokenSkin === skin) ? 'Skin konnte nicht geladen werden.' : skin ? 'Minecraft-Profil via mc-api.io · Skin zum Öffnen anklicken' : 'Skin wird geladen …'}</small>
+      <small role="status">{!current ? 'Minecraft-Profil wird geladen …' : current.failed ? 'Minecraft-Profil derzeit nicht verfügbar. Gespeicherte Profildaten werden angezeigt.' : brokenSkin && (brokenSkin === renderUrl || brokenSkin === skin) ? 'Skin konnte nicht geladen werden.' : skin ? 'Skin zum Öffnen anklicken' : 'Skin wird geladen …'}</small>
     </div>
   </div>;
 }

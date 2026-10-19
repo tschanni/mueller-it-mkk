@@ -70,6 +70,7 @@ async function main() {
       throw Error('Browser wait failed: ' + label);
     }
     const text = value => `document.body.innerText.includes(${JSON.stringify(value)})`;
+    const refocus = () => evaluate('(() => { const now = Date.now; const next = now() + 60001; Date.now = () => next; window.dispatchEvent(new Event("focus")); })()');
     const click = label => evaluate(`(() => { const buttons = [...document.querySelectorAll('button')].filter(b => b.textContent.trim() === ${JSON.stringify(label)} && !b.disabled && !b.closest('.hidden')); const b = buttons.find(b => b.getAttribute('role') === 'menuitem') || buttons.find(b => b.closest('form')) || buttons.find(b => b.closest('[role=dialog]')) || buttons[0]; if (!b) throw Error('Button unavailable'); b.click(); })()`);
     const fill = (id, value) => evaluate(`(() => { const e = document.getElementById(${JSON.stringify(id)}); if (!e || e.disabled) throw Error('Input unavailable'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(e, ${JSON.stringify(value)}); e.dispatchEvent(new Event('input', { bubbles: true })); })()`);
     const user = { id: 'browser-fixture-user', name: 'SameName', email: 'browser@example.invalid', emailVerified: true, role: 'USER' };
@@ -170,20 +171,28 @@ async function main() {
     await until(text('Sie sind angemeldet.'), 'login success'); await click('OK');
     await click('Start'); await click('Mein Konto'); await until('document.getElementById("contact-firstName")?.disabled === false', 'contact loaded');
     check('user.name and stable ID displayed', await evaluate(text('SameName') + ' && ' + text(user.id)));
-    check('no name or image editor', await evaluate('!document.getElementById("account-username") && !document.getElementById("account-image")'));
+    check('username remains read-only; upload awaits backend configuration', await evaluate('!document.getElementById("account-username") && document.querySelector("input[type=file]").disabled'));
+    check('contacts initially collapsed', await evaluate('!document.querySelector(".auth-contact-details").open'));
+    await evaluate('document.querySelector(".auth-contact-details summary").click()');
+    check('contacts expand', await evaluate('document.querySelector(".auth-contact-details").open'));
     await fill('contact-postalCode', '01234'); await fill('contact-city', 'Hanau'); await click('Kontaktdaten speichern');
     await until(text('Ihre Kontaktdaten wurden gespeichert.'), 'save success');
     check('profile save preserves ZIP and clears empty fields', savedBody.postalCode === '01234' && savedBody.firstName === null && !('userId' in savedBody));
     await command('Page.reload'); await until(text('Start'), 'reload');
     await click('Start'); await click('Mein Konto'); await until('document.getElementById("contact-postalCode")?.value === "01234"', 'profile restored');
+    await evaluate('document.querySelector(".auth-contact-details summary").click()');
     check('reload restores session and contacts');
     for (const failure of ['503', 'network']) {
       fault = failure;
-      await evaluate('window.dispatchEvent(new Event("focus"))');
-      await until(text(failure === '503' ? 'Serverfehler' : 'nicht erreichbar'), 'refresh fault');
+      const before = results.mockRequests.filter(item => item.path === auth + 'get-session').length;
+      await refocus();
+      for (let i = 0; i < 60 && results.mockRequests.filter(item => item.path === auth + 'get-session').length < before + 3; i++) await sleep(100);
+      await sleep(100);
+      check(failure + ' retries bounded reads', results.mockRequests.filter(item => item.path === auth + 'get-session').length === before + 3);
+      check(failure + ' does not open an error dialog', await evaluate('!document.querySelector("[role=alert]")'));
       check(failure + ' does not log user out', await evaluate('!!document.getElementById("contact-firstName")'));
-      await click('OK'); fault = null;
-      await evaluate('window.dispatchEvent(new Event("focus"))'); await sleep(150);
+      fault = null;
+      await refocus(); await sleep(150);
     }
     await fs.mkdir(artifacts, { recursive: true });
     const screenshot = await command('Page.captureScreenshot', { format: 'png' });
@@ -221,7 +230,7 @@ async function main() {
     await click('Abbrechen');
     await command('Emulation.setDeviceMetricsOverride', { width: 1100, height: 850, deviceScaleFactor: 1, mobile: false });
     await evaluate('document.querySelector(".gsm").closest(".window").querySelector("button[aria-label=Close]").click()');
-    fault = '401'; await evaluate('window.dispatchEvent(new Event("focus"))');
+    fault = '401'; await refocus();
     await until(text('HTTP 401'), 'invalid session notice');
     check('401 removes contact fields', await evaluate('!document.getElementById("contact-firstName")'));
     await click('OK'); fault = null; signedIn = false;

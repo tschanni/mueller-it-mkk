@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AuthAdapter, AuthError, AuthSession, LinkedAccount, LoginInput, RegistrationInput, authClient, checkedRedirect, checkedSession, safeAuthMessage } from './client';
 import { ContactInput, ContactProfile } from './contactProfile';
+import { retryAuthRead, transientAuthError } from './retry';
 import { readAuthReturn } from './callbacks';
 
 type Status = 'loading' | 'anonymous' | 'authenticated' | 'unavailable';
@@ -26,6 +27,8 @@ interface AuthState {
   hasResetToken: boolean;
   completePasswordReset: (password: string) => Promise<boolean>;
   resendVerification: (email: string) => Promise<boolean>;
+  imageUploadAvailable: boolean;
+  uploadProfileImage: (file: File) => Promise<boolean>;
   getProfile: (signal: AbortSignal) => Promise<ContactProfile | null>;
   saveProfile: (input: ContactInput, signal: AbortSignal) => Promise<ContactProfile>;
   listAccounts: (signal: AbortSignal) => Promise<LinkedAccount[]>;
@@ -73,6 +76,7 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
   const revision = useRef(0);
   const operation = useRef<AbortController | null>(null);
   const restoring = useRef<AbortController | null>(null);
+  const lastChecked = useRef(0);
   const invalidate = useCallback(() => { revision.current++; }, []);
   const notify = useCallback((text: string, title = 'Anmeldung', kind: NoticeKind = 'info') => {
     setNotice({ id: ++noticeId.current, text, title, kind });
@@ -89,7 +93,7 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
     const version = revision.current;
     const timer = setTimeout(() => abort.abort(), 10000);
     try {
-      const result = checkedSession(await abortable(adapter.getSession(abort.signal), abort.signal));
+      const result = checkedSession(await abortable(retryAuthRead(() => adapter.getSession(abort.signal), abort.signal), abort.signal));
       if (!mounted.current || abort.signal.aborted || version !== revision.current) return;
       if (current.current && !result) notify(new AuthError('expired').message, 'Sitzung beendet', 'warning');
       apply(result);
@@ -102,12 +106,13 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
       const rejected = error instanceof AuthError && ['expired', 'unauthorized'].includes(error.code);
       if (rejected) { apply(null); setEntryWindow('auth-login'); }
       else setStatus(current.current ? 'authenticated' : 'unavailable');
-      notify(safeAuthMessage(error), 'Sitzungsprüfung', rejected ? 'warning' : 'error');
+      if (rejected) notify(safeAuthMessage(error), 'Sitzungsprüfung', 'warning');
       if (entry.kind === 'oauth' && !entry.failed && !oauthChecked.current) {
         oauthChecked.current = true; setEntryWindow('auth-login'); notify(safeAuthMessage(error), 'Anfrage fehlgeschlagen', error instanceof AuthError && ['expired', 'unauthorized', 'verification', 'rate-limited', 'fresh-session', 'contract-pending'].includes(error.code) ? 'warning' : 'error');
       }
     } finally {
       clearTimeout(timer);
+      lastChecked.current = Date.now();
       if (restoring.current === abort) restoring.current = null;
     }
   }, [adapter, apply, notify, entry]);
@@ -134,13 +139,14 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
         if (entry.failed) notify('Das Discord-Konto konnte nicht verknüpft werden. Bitte versuchen Sie es erneut.', 'Mein Konto', 'error');
       }
     }
-    void refresh();
-    const visible = () => { if (document.visibilityState !== 'hidden') void refresh(); };
+    let disposed = false;
+    void Promise.resolve().then(() => { if (!disposed) void refresh(); });
+    const visible = () => { if (document.visibilityState !== 'hidden' && Date.now() - lastChecked.current >= 60000) void refresh(); };
     window.addEventListener('focus', visible);
     document.addEventListener('visibilitychange', visible);
     const interval = setInterval(visible, 60000);
     return () => {
-      mounted.current = false; invalidate();
+      disposed = true; mounted.current = false; invalidate();
       operation.current?.abort(); restoring.current?.abort(); restoring.current = null;
       clearInterval(interval);
       window.removeEventListener('focus', visible);
@@ -232,7 +238,7 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
     }
   }
   const acceptSession = async (signal: AbortSignal) => {
-    const value = checkedSession(await adapter.getSession(signal));
+    const value = checkedSession(await retryAuthRead(() => adapter.getSession(signal), signal));
     if (!mounted.current || signal.aborted) return;
     if (!value) throw new AuthError('invalid-response');
     apply(value);
@@ -241,7 +247,20 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
     session, status, busy, configured: adapter.configured, registrationAvailable: adapter.registrationAvailable === true, passwordPolicy: adapter.passwordPolicy,
     notice, notify, dismissNotice: () => setNotice(null), refresh,
     login: input => run(async signal => {
-      await adapter.signIn(input, signal); await acceptSession(signal);
+      try { await adapter.signIn(input, signal); }
+      catch (error) {
+        if (!transientAuthError(error)) throw error;
+        // A lost POST response may already have created a session. Never replay it
+        // without a confirmed backend idempotency contract; recover through reads.
+        const recovered = await retryAuthRead(async () => {
+          const value = checkedSession(await adapter.getSession(signal));
+          if (!value || value.user.email.toLowerCase() !== input.email.toLowerCase()) throw error;
+          return value;
+        }, signal);
+        if (mounted.current && !signal.aborted) { apply(recovered); setReauthentication(null); notify('Sie sind angemeldet.', 'Anmeldung', 'success'); }
+        return;
+      }
+      await acceptSession(signal);
       if (mounted.current && !signal.aborted) { setReauthentication(null); notify('Sie sind angemeldet.', 'Anmeldung', 'success'); }
     }),
     register: input => run(async signal => {
@@ -274,6 +293,17 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
       if (!adapter.sendVerificationEmail) throw new AuthError('not-configured');
       await adapter.sendVerificationEmail(email, signal);
       if (mounted.current && !signal.aborted) notify('Bitte prüfen Sie Ihren Posteingang. Falls eine Bestätigung erforderlich ist, erhalten Sie eine Nachricht.', 'E-Mail-Bestätigung', 'success');
+    }),
+    imageUploadAvailable: !!adapter.uploadProfileImage,
+    uploadProfileImage: file => run(async signal => {
+      if (!adapter.uploadProfileImage) throw new AuthError('not-configured');
+      const owner = current.current;
+      if (!owner) throw new AuthError('expired');
+      const image = await adapter.uploadProfileImage(file, signal);
+      if (mounted.current && !signal.aborted && current.current?.user.id === owner.user.id) {
+        apply({ ...owner, user: { ...owner.user, image } });
+        notify('Ihr Profilbild wurde gespeichert.', 'Profilbild', 'success');
+      }
     }),
     getProfile, saveProfile,
     listAccounts, reauthentication,

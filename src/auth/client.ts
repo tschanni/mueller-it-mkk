@@ -62,6 +62,7 @@ export interface AuthAdapter {
   /** Static allowlist from the confirmed backend/provider configuration. */
   readonly redirectOrigins: readonly string[];
   readonly passwordPolicy?: { minLength: number; maxLength: number };
+  uploadProfileImage?(file: File, signal: AbortSignal): Promise<string>;
   getSession(signal: AbortSignal): Promise<AuthSession | null>;
   signIn(input: LoginInput, signal: AbortSignal): Promise<void>;
   signUp(input: RegistrationInput, signal: AbortSignal): Promise<RegistrationResult>;
@@ -140,7 +141,7 @@ function safeOrigin(value: string, development: boolean): string {
   if ((!local && url.protocol !== 'https:') || url.username || url.password || url.search || url.hash) throw new AuthError('not-configured');
   return url.origin;
 }
-export function createAuthClient(options: { baseURL: string; frontendOrigin: string; development?: boolean; fetch?: typeof fetch }): AuthAdapter {
+export function createAuthClient(options: { baseURL: string; frontendOrigin: string; development?: boolean; fetch?: typeof fetch; profileImageUploadURL?: string }): AuthAdapter {
   const development = options.development === true;
   const base = new URL(options.baseURL);
   safeOrigin(options.baseURL, development);
@@ -183,6 +184,21 @@ export function createAuthClient(options: { baseURL: string; frontendOrigin: str
     if (!object(value) || value.status !== true) throw new AuthError('invalid-response');
   }
   return {
+    ...(options.profileImageUploadURL ? {
+      async uploadProfileImage(file: File, signal: AbortSignal) {
+        const target = new URL(options.profileImageUploadURL!);
+        if (target.origin !== base.origin || target.username || target.password || target.hash || target.search) throw new AuthError('not-configured');
+        const body = new FormData(); body.append('image', file);
+        let response: Response;
+        try { response = await (options.fetch ?? fetch)(target.href, { method: 'POST', credentials: 'include', redirect: 'error', cache: 'no-store', body, signal }); }
+        catch { throw new AuthError('network'); }
+        if (!response.ok) throw new AuthError(response.status === 401 ? 'unauthorized' : response.status >= 500 ? 'server' : 'request');
+        const value: unknown = await response.json().catch(() => null);
+        const image = object(value) ? profileImageURL(value.image) : null;
+        if (!image) throw new AuthError('invalid-response');
+        return image;
+      },
+    } : {}),
     configured: true, redirectOrigins: ['https://discord.com'], passwordPolicy: { minLength: 12, maxLength: 128 },
     async getSession(signal) {
       const value = await request('get-session', signal);
@@ -258,6 +274,7 @@ function configuredClient(): AuthAdapter {
     const local = process.env.NODE_ENV === 'development' && window.location.hostname === 'localhost';
     return createAuthClient({
       baseURL: process.env.REACT_APP_AUTH_API_BASE_URL || (local ? 'http://localhost:3001/api/v1/auth' : 'https://api.mueller-it-mkk.de/games/api/v1/auth'),
+      profileImageUploadURL: process.env.REACT_APP_PROFILE_IMAGE_UPLOAD_URL,
       frontendOrigin: window.location.origin, development: process.env.NODE_ENV !== 'production',
     });
   } catch { return unconfiguredAuthClient; }

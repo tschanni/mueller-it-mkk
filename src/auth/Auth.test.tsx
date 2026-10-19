@@ -49,7 +49,8 @@ beforeEach(() => {
   window.history.replaceState(null, '', '/');
   Object.defineProperty(window, 'fetch', { writable: true, value: jest.fn(async () => ({ ok: true, json: async () => [] })) });
 });
-afterEach(() => { jest.useRealTimers(); });
+afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks(); });
+function focusAfterMinute() { jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 60001); fireEvent.focus(window); }
 
 test('an anonymous cookie session leaves login available and the public manager usable', async () => {
   (window.fetch as jest.Mock).mockImplementation(async (url: string) => ({ ok: true, json: async () => url.includes('/auth/get-session') ? null : [] }));
@@ -153,7 +154,7 @@ test('pending login disables duplicate submissions and has a bounded waiting tim
   await act(async () => { await Promise.resolve(); });
   const dialog = openLogin(); credentials(dialog);
   fireEvent.click(within(dialog).getByRole('button', { name: 'Anmelden' }));
-  expect(within(dialog).getByRole('button', { name: 'Bitte warten…' })).toBeDisabled();
+  expect(within(dialog).getByRole('button', { name: /Verbindung wird hergestellt/ })).toBeDisabled();
   expect(within(dialog).getByRole('button', { name: 'Mit Discord anmelden' })).toBeDisabled();
   fireEvent.submit(within(dialog).getByRole('form', { name: 'Anmeldedaten' }));
   expect(adapter.signIn).toHaveBeenCalledTimes(1);
@@ -259,9 +260,9 @@ test('focus refresh applies changed database roles and revoked sessions', async 
   adapter.getSession.mockResolvedValueOnce({ ...signedIn(), user: { ...user, role: 'ADMIN' } }).mockResolvedValueOnce(signedIn()).mockResolvedValueOnce(null);
   mount(adapter); await ready();
   expect(screen.getByTestId('auth-state')).toHaveTextContent('ADMIN');
-  fireEvent.focus(window);
+  focusAfterMinute();
   await waitFor(() => expect(screen.getByTestId('auth-state')).toHaveTextContent('USER'));
-  fireEvent.focus(window);
+  focusAfterMinute();
   await screen.findByText(/Ihre Sitzung ist abgelaufen/);
   expect(screen.getByTestId('auth-state')).toHaveTextContent('anonymous');
 });
@@ -271,7 +272,7 @@ test('a late session restore cannot sign the user back in after logout', async (
   const delayed = new Promise<AuthSession | null>(done => { resolve = done; });
   const adapter = adapterForTest(); adapter.getSession.mockResolvedValueOnce(signedIn()).mockReturnValueOnce(delayed);
   mount(adapter); await ready();
-  fireEvent.focus(window);
+  focusAfterMinute();
   fireEvent.click(within(menu()).getByRole('menuitem', { name: 'Abmelden' }));
   await waitFor(() => expect(screen.getByTestId('auth-state')).toHaveTextContent('anonymous'));
   await act(async () => { resolve(signedIn()); });
@@ -502,38 +503,39 @@ test('linking callbacks sanitize error queries and reopen the account window', a
   expect(adapter.linkDiscord).not.toHaveBeenCalled();
 });
 
-// Session failures must not discard a still-valid identity.
-test.each(['network', 'server'] as const)('refresh %s retains the known session and recovers on retry', async code => {
+// Session failures must not discard a still-valid identity or open a modal.
+test.each(['network', 'server'] as const)('refresh %s retains the session and silently retries', async code => {
+  jest.useFakeTimers();
   const adapter = adapterForTest();
   adapter.getSession.mockResolvedValueOnce(signedIn()).mockRejectedValueOnce(new AuthError(code)).mockResolvedValueOnce(signedIn());
-  mount(adapter); await ready();
-  fireEvent.focus(window);
-  await screen.findByRole('alert');
+  mount(adapter); await act(async () => { await Promise.resolve(); });
+  await act(async () => { jest.advanceTimersByTime(60001); });
   expect(screen.getByTestId('auth-state')).toHaveTextContent('authenticated:USER');
-  expect(screen.getByRole('alert')).toHaveTextContent(code === 'server' ? 'Serverfehler' : 'nicht erreichbar');
-  fireEvent.click(screen.getByRole('button', { name: 'OK' }));
-  fireEvent.focus(window);
-  await waitFor(() => expect(adapter.getSession).toHaveBeenCalledTimes(3));
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  await act(async () => { jest.advanceTimersByTime(751); });
+  expect(adapter.getSession).toHaveBeenCalledTimes(3);
   expect(screen.getByTestId('auth-state')).toHaveTextContent('authenticated:USER');
 });
 
 test('HTTP 401 during refresh clears the session and offers login', async () => {
   const adapter = adapterForTest();
   adapter.getSession.mockResolvedValueOnce(signedIn()).mockRejectedValueOnce(new AuthError('unauthorized'));
-  mount(adapter); await ready(); fireEvent.focus(window);
+  mount(adapter); await ready(); focusAfterMinute();
   await screen.findByText(/HTTP 401/);
   expect(screen.getByTestId('auth-state')).toHaveTextContent('anonymous');
   expect(screen.getByRole('dialog', { name: 'Mueller IT MKK Welt Anmeldung' })).toBeInTheDocument();
 });
 
-test('reload restoration failure stays unavailable and a focus retry restores the cookie session', async () => {
+test('initial temporary failure silently recovers with one bounded retry', async () => {
+  jest.useFakeTimers();
   const adapter = adapterForTest();
   adapter.getSession.mockRejectedValueOnce(new AuthError('network')).mockResolvedValueOnce(signedIn());
-  mount(adapter); await ready();
-  expect(screen.getByTestId('auth-state')).toHaveTextContent('unavailable');
-  fireEvent.click(await screen.findByRole('button', { name: 'OK' }));
-  fireEvent.focus(window);
-  await waitFor(() => expect(screen.getByTestId('auth-state')).toHaveTextContent('authenticated:USER'));
+  mount(adapter); await act(async () => { await Promise.resolve(); });
+  expect(screen.getByTestId('auth-state')).toHaveTextContent('loading');
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  await act(async () => { jest.advanceTimersByTime(751); });
+  expect(screen.getByTestId('auth-state')).toHaveTextContent('authenticated:USER');
+  expect(adapter.getSession).toHaveBeenCalledTimes(2);
 });
 
 test('Discord return requiring email verification gives a specific safe recovery instruction', async () => {

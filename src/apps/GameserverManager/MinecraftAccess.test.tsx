@@ -109,13 +109,11 @@ test.each(['WHITELISTED', 'NOT_WHITELISTED', 'UNKNOWN'])('uses observed %s rathe
   render(<MinecraftAccessPanel />);
   await screen.findByText(/Discord: Nicht verknüpft/);
   expect(Boolean(screen.queryByText('Du bist bereit zum Spielen!'))).toBe(state === 'WHITELISTED');
-  if (state === 'WHITELISTED') expect(screen.getByRole('button', { name: 'Minecraft-Verknüpfung entfernen' })).toBeEnabled();
-  if (state === 'NOT_WHITELISTED') expect(screen.getByText('Whitelist: Nicht freigeschaltet')).toBeInTheDocument();
-  if (state === 'UNKNOWN') {
-    expect(screen.getByText(unknownWhitelist)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Status erneut prüfen' }));
-    await waitFor(() => expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(0));
-  }
+  expect(screen.getByRole('button', { name: 'Minecraft-Verknüpfung entfernen' })).toBeEnabled();
+  const expected = state === 'WHITELISTED' ? 'Whitelist: Freigeschaltet' : state === 'NOT_WHITELISTED' ? 'Whitelist: Nicht freigeschaltet' : unknownWhitelist;
+  expect(screen.getByText(expected)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: state === 'UNKNOWN' ? 'Status erneut prüfen' : 'Status aktualisieren' }));
+  await waitFor(() => expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(0));
 });
 
 test.each(['SUCCEEDED', 'ALREADY_IN_STATE', 'NOT_REQUIRED', 'NOT_ATTEMPTED'] as const)('preserves POST operation %s after subsequent GET', async outcome => {

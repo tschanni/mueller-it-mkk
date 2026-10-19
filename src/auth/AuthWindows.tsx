@@ -33,6 +33,7 @@ function Intro({ children }: { children: React.ReactNode }) {
 }
 function ConnectionNote() {
   const { configured, status, refresh } = useAuth();
+  if (status === 'loading') return <p role="status"><span className="auth-spinner" aria-hidden="true" /> Sitzung wird geprüft …</p>;
   if (!configured) return <p className="auth-connection" role="status">Die Serveranbindung für die Anmeldung wird vorbereitet. Anmelden und Registrieren sind derzeit nicht verfügbar.</p>;
   if (status === 'unavailable') return <p className="auth-connection" role="status">Der Anmeldedienst ist momentan nicht erreichbar. Bitte versuchen Sie es erneut. <button type="button" onClick={() => void refresh()}>Erneut prüfen</button></p>;
   return null;
@@ -67,7 +68,7 @@ export function LoginDialog({ windowId }: { windowId: string }) {
       <label htmlFor="login-email">E-Mail:</label><input id="login-email" type="email" autoComplete="username" autoFocus required value={email} disabled={busy} onChange={e => setEmail(e.target.value)} />
       <label htmlFor="login-password">Passwort:</label><input id="login-password" type="password" autoComplete="current-password" required value={password} disabled={busy} onChange={e => setPassword(e.target.value)} />
     </div>
-    <div className="auth-actions"><button type="submit" disabled={!configured || busy}>{busy ? 'Bitte warten…' : 'Anmelden'}</button><button type="button" onClick={() => closeWindow(windowId)}>Abbrechen</button></div>
+    <div className="auth-actions"><button type="submit" disabled={!configured || busy}>{busy ? <><span className="auth-spinner" aria-hidden="true" />Verbindung wird hergestellt …</> : 'Anmelden'}</button><button type="button" onClick={() => closeWindow(windowId)}>Abbrechen</button></div>
     <div className="auth-alternative"><button type="button" disabled={!configured || busy} onClick={() => { setPassword(''); void discord(); }}><img src={publicAsset('/discord.svg')} alt="" width="20" height="20" />Mit Discord anmelden</button></div>
     <div className="auth-links"><button type="button" disabled={busy} onClick={() => { setPassword(''); open('auth-register'); }}>Neues Konto erstellen</button><button type="button" disabled={busy} onClick={() => { setPassword(''); open('auth-reset'); }}>Passwort vergessen?</button></div>
     <div className="auth-links"><button type="button" disabled={!configured || busy} onClick={() => {

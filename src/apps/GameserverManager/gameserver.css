@@ -21,3 +21,4 @@
 .gsm-whitelist-entry strong,.gsm-whitelist-entry span{display:block}.gsm-whitelist-entry strong{color:#000080;margin-bottom:3px}.gsm-whitelist-entry button{background:#000080;color:#fff;padding:8px 14px;white-space:normal}.gsm-whitelist-entry button span{display:inline}
 @media(max-width:500px){.gsm-whitelist-entry button{width:100%}}
 .gsm-overview-profile{flex:1;min-width:0}.gsm-whitelist-entry .mc98-skin{display:block}.gsm-whitelist-entry .mc98-skin-placeholder{display:grid}
+.gsm-live-map{display:block;width:100%;height:65vh;min-height:280px;border:0}.gsm-tabs{flex-wrap:wrap}

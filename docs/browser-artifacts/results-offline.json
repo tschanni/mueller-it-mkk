@@ -1,22 +1,32 @@
 {
+  "startedAt": "2026-10-19T20:32:11.410Z",
   "liveRequested": false,
   "checks": [
     "browser registration sends only confirmed fields",
     "browser registration preserves name",
     "user.name and stable ID displayed",
-    "no name or image editor",
+    "username remains read-only; upload awaits backend configuration",
+    "contacts initially collapsed",
+    "contacts expand",
     "profile save preserves ZIP and clears empty fields",
     "reload restores session and contacts",
+    "503 retries bounded reads",
+    "503 does not open an error dialog",
     "503 does not log user out",
+    "network retries bounded reads",
+    "network does not open an error dialog",
     "network does not log user out",
     "320px account window stays entirely inside the viewport",
-    "401 removes contact fields",
-    "logout removes identity and contacts",
-    "Discord requests provider URL and attempts top-level navigation without contacting provider",
-    "no interception errors"
+    "320px account content fits without horizontal scrolling",
+    "320px title controls have 44px touch targets",
+    "390px account content fits without horizontal scrolling",
+    "390px title controls have 44px touch targets",
+    "760px account content fits without horizontal scrolling",
+    "760px title controls have 44px touch targets"
   ],
   "live": [],
   "productionWrites": 0,
+  "buildMain": "./static/js/main.3b50f03f.js",
   "mockRequests": [
     {
       "path": "/games/api/v1/public/servers",
@@ -55,6 +65,10 @@
       "method": "GET"
     },
     {
+      "path": "/games/api/v1/me/minecraft",
+      "method": "GET"
+    },
+    {
       "path": "/games/api/v1/me/profile",
       "method": "GET"
     },
@@ -79,43 +93,7 @@
       "method": "GET"
     },
     {
-      "path": "/games/api/v1/me/profile",
-      "method": "GET"
-    },
-    {
-      "path": "/games/api/v1/auth/list-accounts",
-      "method": "GET"
-    },
-    {
-      "path": "/games/api/v1/auth/get-session",
-      "method": "GET"
-    },
-    {
-      "path": "/games/api/v1/auth/get-session",
-      "method": "GET"
-    },
-    {
-      "path": "/games/api/v1/auth/get-session",
-      "method": "GET"
-    },
-    {
-      "path": "/games/api/v1/auth/get-session",
-      "method": "GET"
-    },
-    {
-      "path": "/games/api/v1/auth/get-session",
-      "method": "GET"
-    },
-    {
-      "path": "/games/api/v1/auth/sign-in/email",
-      "method": "OPTIONS"
-    },
-    {
-      "path": "/games/api/v1/auth/sign-in/email",
-      "method": "POST"
-    },
-    {
-      "path": "/games/api/v1/auth/get-session",
+      "path": "/games/api/v1/me/minecraft",
       "method": "GET"
     },
     {
@@ -127,15 +105,7 @@
       "method": "GET"
     },
     {
-      "path": "/games/api/v1/auth/sign-out",
-      "method": "OPTIONS"
-    },
-    {
-      "path": "/games/api/v1/auth/sign-out",
-      "method": "POST"
-    },
-    {
-      "path": "/games/api/v1/public/servers",
+      "path": "/games/api/v1/auth/get-session",
       "method": "GET"
     },
     {
@@ -143,13 +113,30 @@
       "method": "GET"
     },
     {
-      "path": "/games/api/v1/auth/sign-in/social",
-      "method": "OPTIONS"
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
     },
     {
-      "path": "/games/api/v1/auth/sign-in/social",
-      "method": "POST"
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
     }
   ],
-  "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36"
+  "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+  "finishedAt": "2026-10-19T20:32:17.884Z"
 }

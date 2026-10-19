@@ -4,7 +4,8 @@ import { useAuth } from './AuthContext';
 import { AuthUser, LinkedAccount } from './client';
 import { useAuthWindow } from './useAuthWindow';
 import { ContactProfileForm } from './ContactProfileForm';
-import { ProfileImage } from './ProfileImage';
+import { ProfileImageEditor } from './ProfileImageEditor';
+import { MinecraftAccount } from './MinecraftAccount';
 
 function AccountDetails({ user }: { user: AuthUser }) {
   const { busy, listAccounts, linkDiscord, unlinkAccount, resendVerification } = useAuth();
@@ -36,9 +37,10 @@ function AccountDetails({ user }: { user: AuthUser }) {
     </dl>
       {!user.emailVerified && <button disabled={busy} onClick={() => void resendVerification(user.email)}>Bestätigungsmail erneut senden</button>}
     </fieldset>
-    {user.image && <div className="auth-profile-preview"><ProfileImage image={user.image} name={user.name} size={64} /></div>}
+    <ProfileImageEditor user={user} />
+    <MinecraftAccount />
     <p>Ihr Benutzername ist vorerst nicht änderbar.</p>
-    {user.emailVerified ? <ContactProfileForm key={user.id} /> : <p role="status">Bitte bestätigen Sie Ihre E-Mail-Adresse, um Ihre optionalen Kontaktdaten zu bearbeiten.</p>}
+    {user.emailVerified ? <details className="auth-contact-details"><summary>Kontaktinformationen</summary><ContactProfileForm key={user.id} /></details> : <p role="status">Bitte bestätigen Sie Ihre E-Mail-Adresse, um Ihre optionalen Kontaktdaten zu bearbeiten.</p>}
     <fieldset><legend>Verknüpfte Anmeldekonten</legend>
       {loading && <p role="status">Anmeldekonten werden geladen…</p>}
       {loadError && <p>Die Anmeldekonten konnten nicht geladen werden. <button disabled={busy || loading} onClick={() => setRevision(value => value + 1)}>Erneut laden</button></p>}

@@ -40,3 +40,9 @@
 @media (max-width: 420px) { .auth-fields { grid-template-columns: 1fr; gap: 4px; } .auth-fields input { margin-bottom: 8px; } }
 /* Keep existing desktop window positions from clipping account forms on resize. */
 @media (max-width: 600px) { .window.auth-window { left: 4px !important; top: 4px !important; } }
+
+.auth-spinner{display:inline-block;width:12px;height:12px;border:2px solid #808080;border-top-color:#000080;border-radius:50%;animation:auth-spin .8s linear infinite;margin-right:6px;vertical-align:middle}
+@keyframes auth-spin{to{transform:rotate(360deg)}}
+.auth-contact-details{margin:12px 0}.auth-contact-details summary{cursor:pointer;padding:8px;font-weight:bold}.auth-contact-details summary:focus-visible{outline:1px dotted #000}
+.auth-image-input{display:block;margin:10px 0}.auth-image-input input{display:block;max-width:100%;margin-top:6px}
+@media(prefers-reduced-motion:reduce){.auth-spinner{animation:none}}

@@ -38,6 +38,18 @@ function edit(label: string, value: string) { fireEvent.change(screen.getByLabel
 beforeEach(() => window.history.replaceState(null, '', '/'));
 afterEach(() => jest.useRealTimers());
 
+test('contact information starts collapsed and retains the editable form when expanded', async () => {
+  mount(); await ready();
+  const summary = screen.getByText('Kontaktinformationen');
+  const details = summary.closest('details')!;
+  expect(details).not.toHaveAttribute('open');
+  fireEvent.click(summary);
+  expect(details).toHaveAttribute('open');
+  expect(screen.getByRole('button', { name: 'Kontaktdaten speichern' })).toBeEnabled();
+  fireEvent.click(summary);
+  expect(details).not.toHaveAttribute('open');
+});
+
 test('anonymous and unverified sessions never request or expose profile fields', async () => {
   const client = adapter(); client.getSession.mockResolvedValue(null);
   mount(client); await waitFor(() => expect(screen.getByTestId('identity')).toHaveTextContent('anonymous'));

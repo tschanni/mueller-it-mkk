@@ -1,14 +1,20 @@
 {
-  "startedAt": "2026-10-18T15:47:02.424Z",
+  "startedAt": "2026-10-19T20:32:24.525Z",
   "liveRequested": false,
   "checks": [
     "browser registration sends only confirmed fields",
     "browser registration preserves name",
     "user.name and stable ID displayed",
-    "no name or image editor",
+    "username remains read-only; upload awaits backend configuration",
+    "contacts initially collapsed",
+    "contacts expand",
     "profile save preserves ZIP and clears empty fields",
     "reload restores session and contacts",
+    "503 retries bounded reads",
+    "503 does not open an error dialog",
     "503 does not log user out",
+    "network retries bounded reads",
+    "network does not open an error dialog",
     "network does not log user out",
     "320px account window stays entirely inside the viewport",
     "320px account content fits without horizontal scrolling",
@@ -28,7 +34,7 @@
   ],
   "live": [],
   "productionWrites": 0,
-  "buildMain": "./static/js/main.7f12cf65.js",
+  "buildMain": "./static/js/main.3b50f03f.js",
   "mockRequests": [
     {
       "path": "/games/api/v1/public/servers",
@@ -67,6 +73,10 @@
       "method": "GET"
     },
     {
+      "path": "/games/api/v1/me/minecraft",
+      "method": "GET"
+    },
+    {
       "path": "/games/api/v1/me/profile",
       "method": "GET"
     },
@@ -91,11 +101,31 @@
       "method": "GET"
     },
     {
+      "path": "/games/api/v1/me/minecraft",
+      "method": "GET"
+    },
+    {
       "path": "/games/api/v1/me/profile",
       "method": "GET"
     },
     {
       "path": "/games/api/v1/auth/list-accounts",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
       "method": "GET"
     },
     {
@@ -123,14 +153,14 @@
       "method": "GET"
     },
     {
+      "path": "/games/api/v1/me/minecraft",
+      "method": "GET"
+    },
+    {
       "path": "/games/api/v1/public/servers",
       "method": "GET"
     },
     {
-      "path": "/games/api/v1/me/minecraft",
-      "method": "GET"
-    },
-    {
       "path": "/games/api/v1/me/minecraft/whitelist",
       "method": "OPTIONS"
     },
@@ -156,6 +186,10 @@
     },
     {
       "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/me/minecraft",
       "method": "GET"
     },
     {
@@ -193,5 +227,5 @@
   ],
   "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
   "oauthNavigationBlocked": true,
-  "finishedAt": "2026-10-18T15:47:05.286Z"
+  "finishedAt": "2026-10-19T20:32:32.116Z"
 }

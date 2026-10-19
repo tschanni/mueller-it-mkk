@@ -41,7 +41,7 @@ afterEach(() => jest.useRealTimers());
 test('contact information starts collapsed and retains the editable form when expanded', async () => {
   mount(); await ready();
   const summary = screen.getByText('Kontaktinformationen');
-  const details = summary.closest('details')!;
+  const details = screen.getByRole('group', { name: '' });
   expect(details).not.toHaveAttribute('open');
   fireEvent.click(summary);
   expect(details).toHaveAttribute('open');

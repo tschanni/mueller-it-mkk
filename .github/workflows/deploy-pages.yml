@@ -48,6 +48,8 @@ jobs:
           CI: 'true'
           PUBLIC_URL: '.'
           REACT_APP_GAME_API_BASE_URL: https://api.mueller-it-mkk.de
+          REACT_APP_PROFILE_IMAGE_UPLOAD_URL: https://api.mueller-it-mkk.de/games/api/v1/me/avatar
+          REACT_APP_MINECRAFT_MAP_URL: https://api.mueller-it-mkk.de/private-map/
 
       - name: Upload website
         uses: actions/upload-pages-artifact@v3

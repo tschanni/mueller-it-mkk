@@ -1,6 +1,9 @@
 import { AuthError, createAuthClient, safeAuthMessage } from './client';
 import { contactBody, emptyContact } from './contactProfile';
 import { readAuthReturn } from './callbacks';
+const originalCrypto = Object.getOwnPropertyDescriptor(window, 'crypto');
+beforeEach(() => Object.defineProperty(window, 'crypto', { configurable: true, value: { getRandomValues: (bytes: Uint8Array) => bytes.fill(1) } }));
+afterEach(() => { if (originalCrypto) Object.defineProperty(window, 'crypto', originalCrypto); });
 
 function response(value: unknown, status = 200, retryAfter?: string, retryHeader = 'X-Retry-After'): Response {
   return { ok: status >= 200 && status < 300, status, json: async () => value,
@@ -48,14 +51,14 @@ test.each([
   await expect(client.getSession(signal)).rejects.toMatchObject({ code: 'invalid-response' });
 });
 
-test('registration sends only name, email, password and the verification callback, preserving case and duplicate names', async () => {
+test('registration sends only name, email and password through the recovery contract', async () => {
   const { client, fetcher, signal } = setup();
-  fetcher.mockResolvedValue(response({ token: null, user: { id: 'u1' } }));
+  fetcher.mockResolvedValue(response({ state: 'SUCCEEDED', code: 'REGISTRATION_ACCEPTED' }));
   const input = { name: 'Alex_1', email: 'alex@example.com', password: 'long-password-123' };
   expect(client.registrationAvailable).toBe(true);
   expect(await client.signUp(input, signal)).toBe('verify-email');
-  expect(lastRequest(fetcher)).toEqual([expect.stringMatching(/sign-up\/email$/), expect.objectContaining({ method: 'POST', credentials: 'include', cache: 'no-store' })]);
-  expect(JSON.parse(lastRequest(fetcher)[1].body as string)).toEqual({ ...input, callbackURL: 'https://www.mueller-it-mkk.de/auth/verified' });
+  expect(lastRequest(fetcher)).toEqual([expect.stringMatching(/auth-recovery\/registrations$/), expect.objectContaining({ method: 'POST', credentials: 'include', cache: 'no-store' })]);
+  expect(JSON.parse(lastRequest(fetcher)[1].body as string)).toEqual(input);
   await client.signUp({ ...input, email: 'other@example.com' }, signal);
   expect(JSON.parse(lastRequest(fetcher)[1].body as string).name).toBe('Alex_1');
   expect(fetcher).toHaveBeenCalledTimes(2);
@@ -224,11 +227,11 @@ test.each([[400, 'profile-validation'], [401, 'unauthorized'], [403, 'forbidden'
   expect(safeAuthMessage(error)).not.toContain('PRIVATE_CONTACT_DATA');
 });
 
-test('SMTP failure has recovery instructions and never exposes backend details', async () => {
-  const { client, fetcher, signal } = setup(); fetcher.mockResolvedValue(response({ code: 'EMAIL_DELIVERY_FAILED', message: 'SECRET_SMTP' }, 503));
+test('uncertain signup has safe recovery instructions and never exposes backend details', async () => {
+  const { client, fetcher, signal } = setup(); fetcher.mockResolvedValue(response({ state: 'UNCERTAIN', code: 'REGISTRATION_UNCERTAIN', message: 'SECRET_SMTP' }, 202));
   const error = await client.signUp({ name: 'Alex', email: 'a@b.de', password: 'long-password' }, signal).catch(error => error);
-  expect(error).toMatchObject({ code: 'email-delivery' });
-  expect(safeAuthMessage(error)).toMatch(/Konto kann bereits angelegt sein/);
+  expect(error).toMatchObject({ code: 'registration-uncertain' });
+  expect(safeAuthMessage(error)).toMatch(/nicht eindeutig bestätigen/);
   expect(safeAuthMessage(error)).not.toMatch(/SECRET/);
 });
 

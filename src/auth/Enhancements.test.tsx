@@ -51,6 +51,16 @@ test('an ambiguous login response recovers the cookie session without replaying 
   await screen.findByText('authenticated'); expect(client.signIn).toHaveBeenCalledTimes(1);
 });
 
+test('a different account session cannot confirm even a successful login POST', async () => {
+  const client = adapter();
+  client.getSession = jest.fn().mockResolvedValueOnce(null).mockResolvedValue({ ...session, user: { ...session.user, id: 'other', email: 'other@example.com' } });
+  render(<AuthProvider adapter={client}><View /></AuthProvider>);
+  await screen.findByText('anonymous'); fireEvent.click(screen.getByText('Login'));
+  await waitFor(() => expect(screen.getByText('Login')).toBeEnabled());
+  expect(screen.queryByText('authenticated')).not.toBeInTheDocument();
+  expect(client.signIn).toHaveBeenCalledTimes(1);
+});
+
 test('live map needs only the website session and disappears immediately after logout', async () => {
   process.env.REACT_APP_MINECRAFT_MAP_URL = 'https://api.mueller-it-mkk.de/private-map/';
   render(<AuthProvider adapter={adapter()}><View /></AuthProvider>);

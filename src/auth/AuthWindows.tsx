@@ -5,6 +5,7 @@ import { useAuth } from './AuthContext';
 import { useAuthWindow } from './useAuthWindow';
 import { validUsername, usernameHint } from './contactProfile';
 import './auth.css';
+import { AuthTransfer } from './AuthTransfer';
 
 export function AuthWindows() {
   const { notice, session, entryWindow, reauthentication } = useAuth();
@@ -45,21 +46,26 @@ const validEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const emailError = 'Bitte geben Sie eine gültige E-Mail-Adresse ein.';
 
 export function LoginDialog({ windowId }: { windowId: string }) {
-  const { login, discord, resendVerification, configured, busy } = useAuth();
+  const { login, discord, resendVerification, configured, busy, loginTransfer, clearLoginTransfer, cancelLogin } = useAuth();
   const { closeWindow } = useWindowManager();
   const open = useAuthWindow();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
+  const submitting = useRef(false);
+  const cancel = useRef(cancelLogin); cancel.current = cancelLogin;
+  useEffect(() => () => cancel.current(), []);
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (submitting.current || busy) return;
     const invalid = [...(!validEmail(email.trim()) ? [emailError] : []), ...(!password ? ['Bitte geben Sie Ihr Passwort ein.'] : [])];
     setErrors(invalid);
     if (invalid.length) return;
-    const secret = password;
-    setPassword('');
-    if (await login({ email: email.trim(), password: secret })) closeWindow(windowId);
+    submitting.current = true;
+    try { if (await login({ email: email.trim(), password })) closeWindow(windowId); }
+    finally { setPassword(''); submitting.current = false; }
   }
+  if (loginTransfer) return <AuthTransfer kind="login" outcome={loginTransfer} onClose={() => closeWindow(windowId)} onBack={loginTransfer.state !== 'LOADING' ? clearLoginTransfer : undefined} />;
   return <form aria-label="Anmeldedaten" className="auth-dialog" onSubmit={submit} noValidate aria-busy={busy}>
     <Intro><p>Geben Sie Ihre E-Mail-Adresse und Ihr Passwort für die Anmeldung bei Mueller IT MKK Welt ein.</p></Intro>
     <ConnectionNote />
@@ -79,15 +85,19 @@ export function LoginDialog({ windowId }: { windowId: string }) {
 }
 
 export function RegistrationDialog({ windowId }: { windowId: string }) {
-  const { register, configured, registrationAvailable, busy, passwordPolicy } = useAuth();
+  const { register, configured, registrationAvailable, busy, passwordPolicy, recoveryAvailable, registration, registrationCanCheck, checkRegistration, cancelRegistration } = useAuth();
   const { closeWindow } = useWindowManager();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
+  const submitting = useRef(false);
+  const cancel = useRef(cancelRegistration); cancel.current = cancelRegistration;
+  useEffect(() => () => cancel.current(), []);
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (submitting.current || busy || (recoveryAvailable && registration)) return;
     const invalid = [
       ...(!validUsername(username) ? [usernameHint] : []),
       ...(!validEmail(email.trim()) ? [emailError] : []),
@@ -97,10 +107,12 @@ export function RegistrationDialog({ windowId }: { windowId: string }) {
     ];
     setErrors(invalid);
     if (invalid.length) return;
-    const secret = password;
-    setPassword(''); setConfirmation('');
-    if (await register({ name: username, email: email.trim(), password: secret })) closeWindow(windowId);
+    submitting.current = true;
+    try {
+      if (await register({ name: username, email: email.trim(), password }) && !recoveryAvailable) closeWindow(windowId);
+    } finally { setPassword(''); setConfirmation(''); submitting.current = false; }
   }
+  if (recoveryAvailable && registration) return <AuthTransfer kind="registration" outcome={registration} onClose={() => closeWindow(windowId)} onCheck={registration.state === 'UNCERTAIN' && registrationCanCheck ? () => void checkRegistration() : undefined} />;
   return <form aria-label="Registrierungsdaten" className="auth-dialog" onSubmit={submit} noValidate aria-busy={busy}>
     <Intro><p>Erstellen Sie ein Benutzerkonto für Müller IT MKK.</p></Intro>
     <ConnectionNote /><FormErrors errors={errors} />

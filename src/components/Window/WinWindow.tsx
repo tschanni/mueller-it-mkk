@@ -10,8 +10,12 @@ import { GameserverManager } from '../../apps/GameserverManager/GameserverManage
 import { Impressum } from '../../apps/Impressum/Impressum';
 import { AuthMessage, LoginDialog, NewPasswordDialog, PasswordResetDialog, RegistrationDialog } from '../../auth/AuthWindows';
 import { AccountDialog } from '../../auth/AccountDialog';
+import { useAuth } from '../../auth/AuthContext';
 
 export const WinWindow: React.FC<{ win: Win98Window }> = ({ win }) => {
+  const { registration, loginTransfer } = useAuth();
+  const transferring = (win.app === 'auth-register' && registration) || (win.app === 'auth-login' && loginTransfer);
+  const title = transferring ? 'Müller IT MKK – Datenübertragung' : win.title;
   const { closeWindow, minimizeWindow, focusWindow, moveWindow, maximizeWindow, focusedId } = useWindowManager();
   const [dragging, setDragging] = useState(false);
   const offsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -56,7 +60,7 @@ export const WinWindow: React.FC<{ win: Win98Window }> = ({ win }) => {
   return (
     <div
       role="dialog"
-      aria-label={win.title}
+      aria-label={title}
       ref={ref}
       className={classNames('window', { hidden: win.isMinimized, 'gameserver-window': win.app === 'gameservers', 'auth-window': win.app.startsWith('auth-'), maximized: win.isMaximized })}
       style={style}
@@ -64,7 +68,7 @@ export const WinWindow: React.FC<{ win: Win98Window }> = ({ win }) => {
       onFocus={() => focusWindow(win.id)}
     >
       <div className={classNames('title-bar', { focused: isFocused })} onMouseDown={onMouseDownTitle} onDoubleClick={() => maximizeWindow(win.id)}>
-        <div className="title-bar-text">{win.title}</div>
+        <div className="title-bar-text">{title}</div>
         <div className="title-bar-controls">
           <button aria-label="Minimize" onClick={() => minimizeWindow(win.id)} />
           <button aria-label={win.isMaximized ? "Restore" : "Maximize"} onClick={() => maximizeWindow(win.id)} />

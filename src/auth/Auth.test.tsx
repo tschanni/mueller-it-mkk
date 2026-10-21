@@ -143,7 +143,7 @@ test('a successful login response without a verified session never signs the use
   const adapter = adapterForTest(); mount(adapter); await ready();
   const dialog = openLogin(); credentials(dialog);
   fireEvent.click(within(dialog).getByRole('button', { name: 'Anmelden' }));
-  await screen.findByText('Die Antwort des Anmeldedienstes konnte nicht überprüft werden.');
+  await screen.findByText('Anmeldung konnte nicht bestätigt werden');
   expect(screen.getByTestId('auth-state')).toHaveTextContent('anonymous');
 });
 
@@ -154,13 +154,14 @@ test('pending login disables duplicate submissions and has a bounded waiting tim
   await act(async () => { await Promise.resolve(); });
   const dialog = openLogin(); credentials(dialog);
   fireEvent.click(within(dialog).getByRole('button', { name: 'Anmelden' }));
-  expect(within(dialog).getByRole('button', { name: /Verbindung wird hergestellt/ })).toBeDisabled();
-  expect(within(dialog).getByRole('button', { name: 'Mit Discord anmelden' })).toBeDisabled();
-  fireEvent.submit(within(dialog).getByRole('form', { name: 'Anmeldedaten' }));
+  expect(within(dialog).getByText('Anmeldung läuft …')).toBeInTheDocument();
+  expect(within(dialog).queryByRole('form')).not.toBeInTheDocument();
   expect(adapter.signIn).toHaveBeenCalledTimes(1);
   await act(async () => { jest.advanceTimersByTime(15001); });
-  expect(screen.getByText(/Anmeldedienst ist nicht erreichbar/)).toBeInTheDocument();
-  expect(within(dialog).getByRole('button', { name: 'Anmelden' })).toBeEnabled();
+  await act(async () => { jest.advanceTimersByTime(750); });
+  await act(async () => { jest.advanceTimersByTime(1500); });
+  expect(screen.getByText('Anmeldung konnte nicht bestätigt werden')).toBeInTheDocument();
+  expect(adapter.signIn).toHaveBeenCalledTimes(1);
 });
 
 test('incorrect credentials use a classic safe error window and clear the password', async () => {
@@ -170,11 +171,10 @@ test('incorrect credentials use a classic safe error window and clear the passwo
   const dialog = openLogin(); credentials(dialog);
   fireEvent.click(within(dialog).getByRole('button', { name: 'Anmelden' }));
   await screen.findByText('E-Mail-Adresse oder Passwort ist nicht korrekt.');
-  expect(screen.getByRole('dialog', { name: 'Meldung' })).toBeInTheDocument();
+  expect(screen.queryByRole('dialog', { name: 'Meldung' })).not.toBeInTheDocument();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Zur Anmeldung' }));
   expect(within(dialog).getByLabelText('Passwort:')).toHaveValue('');
   expect(screen.getByTestId('auth-state')).toHaveTextContent('anonymous');
-  fireEvent.click(screen.getByRole('button', { name: 'OK' }));
-  expect(screen.queryByRole('dialog', { name: 'Meldung' })).not.toBeInTheDocument();
 });
 
 test('restores ADMIN from the server and displays account information', async () => {

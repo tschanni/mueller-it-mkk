@@ -1,6 +1,7 @@
 /** Cookie-only Better Auth adapter for docs/AUTH_API_CONTRACT.md (1.7.10). */
 import { ContactInput, ContactProfile, contactFields, validUsername, usernameHint } from './contactProfile';
 import { profileImageURL } from './profileImageURL';
+import { createRegistrationRecovery, RegistrationRecovery } from './registrationRecovery';
 export type UserRole = 'USER' | 'MAINTAINER' | 'ADMIN';
 export interface AuthUser {
   id: string;
@@ -21,9 +22,10 @@ export interface LinkedAccount { id: string; providerId: string; accountId: stri
 export type RegistrationResult = 'session' | 'verify-email' | 'sign-in';
 export type AuthErrorCode = 'not-configured' | 'credentials' | 'expired' | 'verification' |
   'server' | 'unauthorized' | 'contract-pending' | 'rate-limited' | 'forbidden' | 'oauth' | 'network' | 'invalid-response' |
-  'username' | 'profile-validation' | 'email-delivery' | 'password' | 'token' | 'fresh-session' | 'provider' | 'request' | 'last-account';
+  'username' | 'profile-validation' | 'email-delivery' | 'password' | 'token' | 'fresh-session' | 'provider' | 'request' | 'last-account' | 'registration-uncertain';
 
 const messages: Record<AuthErrorCode, string> = {
+  'registration-uncertain': 'Wir konnten das Ergebnis deiner Registrierung nicht eindeutig bestätigen. Bitte prüfe dein E-Mail-Postfach und registriere dich nicht sofort erneut.',
   'not-configured': 'Die Anmeldung ist noch nicht mit dem Server verbunden. Bitte später erneut versuchen.',
   server: 'Der Anmeldedienst meldet einen Serverfehler. Bitte versuchen Sie es später erneut.',
   unauthorized: 'Der Server hat die Anmeldung nicht bestätigt (HTTP 401). Bitte melden Sie sich erneut an.',
@@ -56,6 +58,7 @@ export function safeAuthMessage(error: unknown): string {
   return error instanceof AuthError ? messages[error.code] : messages.network;
 }
 export interface AuthAdapter {
+  createRegistrationRecovery?(): RegistrationRecovery;
   readonly configured: boolean;
   /** Enabled only once the central-user contract and backend commit are confirmed. */
   readonly registrationAvailable?: boolean;
@@ -220,13 +223,15 @@ export function createAuthClient(options: { baseURL: string; frontendOrigin: str
       if (!object(value) || value.redirect !== false || !object(value.user)) throw new AuthError('invalid-response');
     },
     registrationAvailable: true,
+    createRegistrationRecovery: () => createRegistrationRecovery(base.href.replace(/\/auth$/, ''), options.fetch ?? fetch),
     async signUp(input, signal) {
       if (!validUsername(input.name)) throw new AuthError('username');
-      const value = await request('sign-up/email', signal, {
-        name: input.name, email: input.email, password: input.password, callbackURL: callback('/auth/verified'),
-      });
-      if (!object(value) || value.token !== null || !object(value.user)) throw new AuthError('invalid-response');
-      return 'verify-email';
+      const recovery = createRegistrationRecovery(base.href.replace(/\/auth$/, ''), options.fetch ?? fetch);
+      try {
+        const result = await recovery.start(input, signal);
+        if (result.state !== 'SUCCESS') throw new AuthError(result.state === 'UNCERTAIN' ? 'registration-uncertain' : 'request');
+        return 'verify-email';
+      } finally { recovery.dispose(); }
     },
     async signOut(signal) {
       const value = await request('sign-out', signal, {});

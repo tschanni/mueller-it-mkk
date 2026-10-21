@@ -16,7 +16,9 @@ const api = 'https://api.mueller-it-mkk.de';
 const auth = '/games/api/v1/auth/';
 const profilePath = '/games/api/v1/me/profile';
 const minecraftPath = '/games/api/v1/me/minecraft';
+const registrationPath = '/games/api/v1/auth-recovery/registrations';
 const live = process.argv.includes('--live');
+const authRetryOnly = process.argv.includes('--auth-retry-only');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const results = { startedAt: new Date().toISOString(), liveRequested: live, checks: [], live: [], productionWrites: 0 };
 const artifacts = path.join(root, 'docs', 'browser-artifacts');
@@ -86,7 +88,7 @@ async function main() {
     let registrationBody, savedBody, discordRequested = false;
     const handlerErrors = [];
     const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff': 'font/woff', '.woff2': 'font/woff2' };
-    const fulfill = (requestId, status, value) => command('Fetch.fulfillRequest', { requestId, responseCode: status, responseHeaders: [{ name: 'Content-Type', value: 'application/json' }, { name: 'Access-Control-Allow-Origin', value: frontend }, { name: 'Access-Control-Allow-Credentials', value: 'true' }, { name: 'Access-Control-Allow-Headers', value: 'content-type' }, { name: 'Access-Control-Allow-Methods', value: 'GET, POST, OPTIONS' }, { name: 'Cache-Control', value: 'no-store' }], body: status === 204 ? '' : Buffer.from(JSON.stringify(value)).toString('base64') });
+    const fulfill = (requestId, status, value) => command('Fetch.fulfillRequest', { requestId, responseCode: status, responseHeaders: [{ name: 'Content-Type', value: 'application/json' }, { name: 'Access-Control-Allow-Origin', value: frontend }, { name: 'Access-Control-Allow-Credentials', value: 'true' }, { name: 'Access-Control-Allow-Headers', value: 'content-type, idempotency-key' }, { name: 'Access-Control-Allow-Methods', value: 'GET, POST, OPTIONS' }, { name: 'Cache-Control', value: 'no-store' }], body: status === 204 ? '' : Buffer.from(JSON.stringify(value)).toString('base64') });
     events.set('Fetch.requestPaused', [event => { void (async () => {
       const { requestId, request } = event; const url = new URL(request.url);
       if (url.origin === frontend) {
@@ -102,7 +104,7 @@ async function main() {
         const p = url.pathname;
         if (mode === 'mock') (results.mockRequests ||= []).push({ path: p, method: request.method });
         // The only production allowlist: no POST/PUT/DELETE and no mail/token URLs.
-        if (mode === 'live' && ((request.method === 'GET' && [auth + 'get-session', profilePath].includes(p)) || (request.method === 'OPTIONS' && [profilePath, auth + 'sign-up/email', auth + 'sign-in/email', auth + 'sign-in/social', auth + 'sign-out', auth + 'send-verification-email'].includes(p)))) {
+        if (mode === 'live' && ((request.method === 'GET' && [auth + 'get-session', profilePath].includes(p)) || (request.method === 'OPTIONS' && [profilePath, registrationPath, auth + 'sign-in/email', auth + 'sign-in/social', auth + 'sign-out', auth + 'send-verification-email'].includes(p)))) {
           return command('Fetch.continueRequest', { requestId });
         }
         if (mode === 'live') return command('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' });
@@ -113,7 +115,7 @@ async function main() {
           if (fault === '401') return fulfill(requestId, 401, { statusCode: 401 });
           return fulfill(requestId, 200, signedIn ? { user, session: { userId: user.id, expiresAt: new Date(Date.now() + 3600000).toISOString() } } : null);
         }
-        if (p === auth + 'sign-up/email') { registrationBody = JSON.parse(request.postData); return fulfill(requestId, 200, { token: null, user }); }
+        if (p === registrationPath) { registrationBody = JSON.parse(request.postData); await sleep(1500); return fulfill(requestId, 200, { state: 'SUCCEEDED', code: 'REGISTRATION_ACCEPTED' }); }
         if (p === auth + 'sign-in/email') { signedIn = true; return fulfill(requestId, 200, { redirect: false, user }); }
         if (p === auth + 'sign-out') { signedIn = false; return fulfill(requestId, 200, { success: true }); }
         if (p === auth + 'sign-in/social') { discordRequested = true; return fulfill(requestId, 200, { redirect: true, url: 'https://discord.com/oauth2/authorize?state=browser-fixture' }); }
@@ -149,7 +151,7 @@ async function main() {
       results.live.push(...read);
       // Explicit safe OPTIONS verifies actual production JSON preflight routing.
       const preflights = [];
-      for (const endpoint of [profilePath, auth + 'sign-up/email', auth + 'sign-in/email', auth + 'sign-in/social', auth + 'sign-out', auth + 'send-verification-email']) {
+      for (const endpoint of [profilePath, registrationPath, auth + 'sign-in/email', auth + 'sign-in/social', auth + 'sign-out', auth + 'send-verification-email']) {
         preflights.push(await evaluate(`(async () => { const path = ${JSON.stringify(endpoint)}; try { const r = await fetch(${JSON.stringify(api)} + path, { method: 'OPTIONS', credentials: 'include', signal: AbortSignal.timeout(8000), headers: { 'Content-Type': 'application/json' } }); return { path, method: 'OPTIONS', status: r.status }; } catch (error) { return { path, method: 'OPTIONS', transportError: true, timeout: error.name === 'TimeoutError' }; } })()`));
       }
       results.live.push(...preflights);
@@ -162,15 +164,29 @@ async function main() {
     await click('Start'); await click('Registrieren');
     await fill('register-name', 'SameName'); await fill('register-email', 'browser@example.invalid');
     await fill('register-password', 'browser-fixture-password'); await fill('register-confirm', 'browser-fixture-password'); await click('Registrieren');
-    await until(text('Bitte prüfen Sie Ihren Posteingang'), 'registration verification notice');
-    check('browser registration sends only confirmed fields', Object.keys(registrationBody).sort().join(',') === 'callbackURL,email,name,password');
+    await until(text('Deine Registrierung wird verarbeitet …'), 'registration transfer');
+    check('registration uses one transfer window', await evaluate('document.querySelectorAll(".auth-transfer").length === 1'));
+    check('data packets animate without a progress bar', await evaluate('getComputedStyle(document.querySelector(".auth-transfer-channel i")).animationName === "auth-packet" && !document.querySelector("[role=progressbar]")'));
+    await command('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+    check('reduced motion disables packet movement', await evaluate('getComputedStyle(document.querySelector(".auth-transfer-channel i")).animationName === "none"'));
+    await command('Emulation.setEmulatedMedia', { features: [] });
+    const transfer = await command('Page.captureScreenshot', { format: 'png' });
+    await fs.mkdir(artifacts, { recursive: true });
+    await fs.writeFile(path.join(artifacts, 'auth-transfer-desktop.png'), Buffer.from(transfer.data, 'base64'));
+    await until(text('Registrierung angenommen'), 'registration accepted');
+    check('browser registration sends only confirmed fields', Object.keys(registrationBody).sort().join(',') === 'email,name,password');
     check('browser registration preserves name', registrationBody.name === 'SameName');
     await command('Page.navigate', { url: frontend + '/auth/verified' });
     await until(text('Ihre E-Mail-Adresse wurde bestätigt'), 'verification callback'); await click('OK');
     await fill('login-email', user.email); await fill('login-password', 'browser-fixture-password'); await click('Anmelden');
-    await until(text('Sie sind angemeldet.'), 'login success'); await click('OK');
+    await until('Array.from(document.querySelectorAll(".app-icon")).some(b => b.title === "Mein Konto")', 'login success');
     await click('Start'); await click('Mein Konto'); await until('document.getElementById("contact-firstName")?.disabled === false', 'contact loaded');
     check('user.name and stable ID displayed', await evaluate(text('SameName') + ' && ' + text(user.id)));
+    if (authRetryOnly) {
+      results.finishedAt = new Date().toISOString();
+      console.log(JSON.stringify(results, null, 2));
+      return;
+    }
     check('username remains read-only; upload awaits backend configuration', await evaluate('!document.getElementById("account-username") && document.querySelector("input[type=file]").disabled'));
     check('contacts initially collapsed', await evaluate('!document.querySelector(".auth-contact-details").open'));
     await evaluate('document.querySelector(".auth-contact-details summary").click()');
@@ -235,7 +251,7 @@ async function main() {
     check('401 removes contact fields', await evaluate('!document.getElementById("contact-firstName")'));
     await click('OK'); fault = null; signedIn = false;
     await fill('login-email', user.email); await fill('login-password', 'browser-fixture-password'); await click('Anmelden');
-    await until(text('Sie sind angemeldet.'), 'relogin'); await click('OK');
+    await until('Array.from(document.querySelectorAll(".app-icon")).some(b => b.title === "Mein Konto")', 'relogin');
     await click('Start'); await click('Abmelden'); await until(text('Sie wurden erfolgreich abgemeldet.'), 'logout'); await click('OK');
     check('logout removes identity and contacts', await evaluate('!document.getElementById("contact-firstName")'));
     await command('Page.navigate', { url: frontend + '/auth/error?error=email_not_verified' });
@@ -245,13 +261,13 @@ async function main() {
     check('Discord requests provider URL and attempts top-level navigation without contacting provider', discordRequested && results.oauthNavigationBlocked);
     check('no interception errors', handlerErrors.length === 0);
     results.productionWrites = 0; // All write requests were fulfilled locally or blocked.
-    await fs.writeFile(path.join(artifacts, live ? 'results-live.json' : process.argv.includes('--minecraft-only') ? 'results-minecraft.json' : 'results-offline.json'), JSON.stringify(results, null, 2) + '\n');
+    await fs.writeFile(path.join(artifacts, live ? 'results-live.json' : authRetryOnly ? 'results-auth-retry.json' : process.argv.includes('--minecraft-only') ? 'results-minecraft.json' : 'results-offline.json'), JSON.stringify(results, null, 2) + '\n');
     console.log(JSON.stringify(results, null, 2));
     if (live && (!results.liveChecks.anonymousSession || !results.liveChecks.anonymousProfile || !results.livePreflightPassed)) process.exitCode = 1;
   } finally {
     results.finishedAt = new Date().toISOString();
     await fs.mkdir(artifacts, { recursive: true });
-    await fs.writeFile(path.join(artifacts, live ? 'results-live.json' : process.argv.includes('--minecraft-only') ? 'results-minecraft.json' : 'results-offline.json'), JSON.stringify(results, null, 2) + '\n');
+    await fs.writeFile(path.join(artifacts, live ? 'results-live.json' : authRetryOnly ? 'results-auth-retry.json' : process.argv.includes('--minecraft-only') ? 'results-minecraft.json' : 'results-offline.json'), JSON.stringify(results, null, 2) + '\n');
     if (socket) socket.close(); browser.kill();
     await sleep(300);
     // Only the fresh directory returned by mkdtemp is removed, never a user profile.

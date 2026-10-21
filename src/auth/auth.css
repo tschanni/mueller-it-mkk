@@ -46,3 +46,13 @@
 .auth-contact-details{margin:12px 0}.auth-contact-details summary{cursor:pointer;padding:8px;font-weight:bold}.auth-contact-details summary:focus-visible{outline:1px dotted #000}
 .auth-image-input{display:block;margin:10px 0}.auth-image-input input{display:block;max-width:100%;margin-top:6px}
 @media(prefers-reduced-motion:reduce){.auth-spinner{animation:none}}
+.auth-transfer-animation{display:flex;align-items:center;gap:12px;padding:20px 4px;image-rendering:pixelated}
+.auth-transfer-channel{position:relative;flex:1;min-width:32px;height:36px;overflow:hidden}
+.auth-transfer-channel i{position:absolute;top:12px;left:-10px;width:8px;height:8px;background:#000080;box-shadow:1px 1px #fff,inset 1px 1px #1084d0;animation:auth-packet 1.8s linear infinite}
+.auth-transfer-channel i:nth-child(2){animation-delay:-.6s}.auth-transfer-channel i:nth-child(3){animation-delay:-1.2s}
+@keyframes auth-packet{from{left:-10px}to{left:100%}}
+.auth-transfer h2{font: bold 13px Tahoma,sans-serif;margin:10px 0}
+.auth-transfer-result{width:48px;height:48px;display:grid;place-items:center;font:36px serif;background:#fff;border:2px solid #808080;box-shadow:1px 1px #fff;margin:12px auto}
+.auth-transfer-error{color:#800000}.auth-transfer-success{color:#008000}.auth-transfer-uncertain{color:#000080}
+.auth-transfer-brand{display:block;object-fit:contain;margin-top:12px}
+@media(prefers-reduced-motion:reduce){.auth-transfer-channel i{animation:none;left:25%}.auth-transfer-channel i:nth-child(2){left:50%}.auth-transfer-channel i:nth-child(3){left:75%}}

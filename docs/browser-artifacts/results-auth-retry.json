@@ -1,0 +1,67 @@
+{
+  "startedAt": "2026-10-21T17:58:23.544Z",
+  "liveRequested": false,
+  "checks": [
+    "registration uses one transfer window",
+    "data packets animate without a progress bar",
+    "reduced motion disables packet movement",
+    "browser registration sends only confirmed fields",
+    "browser registration preserves name",
+    "user.name and stable ID displayed"
+  ],
+  "live": [],
+  "productionWrites": 0,
+  "buildMain": "./static/js/main.461fed22.js",
+  "mockRequests": [
+    {
+      "path": "/games/api/v1/public/servers",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth-recovery/registrations",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/games/api/v1/auth-recovery/registrations",
+      "method": "POST"
+    },
+    {
+      "path": "/games/api/v1/public/servers",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/email",
+      "method": "OPTIONS"
+    },
+    {
+      "path": "/games/api/v1/auth/sign-in/email",
+      "method": "POST"
+    },
+    {
+      "path": "/games/api/v1/auth/get-session",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/me/minecraft",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/me/profile",
+      "method": "GET"
+    },
+    {
+      "path": "/games/api/v1/auth/list-accounts",
+      "method": "GET"
+    }
+  ],
+  "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+  "finishedAt": "2026-10-21T17:58:27.090Z"
+}

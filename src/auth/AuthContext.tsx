@@ -3,11 +3,20 @@ import { AuthAdapter, AuthError, AuthSession, LinkedAccount, LoginInput, Registr
 import { ContactInput, ContactProfile } from './contactProfile';
 import { retryAuthRead, transientAuthError } from './retry';
 import { readAuthReturn } from './callbacks';
+import { RegistrationOutcome, RegistrationRecovery, timedRequest } from './registrationRecovery';
 
 type Status = 'loading' | 'anonymous' | 'authenticated' | 'unavailable';
 export type NoticeKind = 'success' | 'warning' | 'error' | 'info';
 export interface AuthNotice { id: number; title: string; text: string; kind: NoticeKind }
 interface AuthState {
+  registration: RegistrationOutcome | null;
+  recoveryAvailable: boolean;
+  registrationCanCheck: boolean;
+  checkRegistration: () => Promise<boolean>;
+  cancelRegistration: () => void;
+  loginTransfer: RegistrationOutcome | null;
+  clearLoginTransfer: () => void;
+  cancelLogin: () => void;
   session: AuthSession | null;
   status: Status;
   busy: boolean;
@@ -55,6 +64,11 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
   const [session, setSession] = useState<AuthSession | null>(null);
   const [status, setStatus] = useState<Status>(adapter.configured ? 'loading' : 'unavailable');
   const [busy, setBusy] = useState(false);
+  const [registration, setRegistration] = useState<RegistrationOutcome | null>(null);
+  const [loginTransfer, setLoginTransfer] = useState<RegistrationOutcome | null>(null);
+  const registrationReceipt = useRef<RegistrationRecovery | null>(null);
+  const registrationRequest = useRef<AbortController | null>(null);
+  const loginRequest = useRef<AbortController | null>(null);
   const [notice, setNotice] = useState<AuthNotice | null>(null);
   const [reauthentication, setReauthentication] = useState<number | null>(null);
   const reauthenticationId = useRef(0);
@@ -147,7 +161,7 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
     const interval = setInterval(visible, 60000);
     return () => {
       disposed = true; mounted.current = false; invalidate();
-      operation.current?.abort(); restoring.current?.abort(); restoring.current = null;
+      operation.current?.abort(); registrationReceipt.current?.dispose(); restoring.current?.abort(); restoring.current = null;
       clearInterval(interval);
       window.removeEventListener('focus', visible);
       document.removeEventListener('visibilitychange', visible);
@@ -215,19 +229,20 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
     return profile;
   }), [adapter, profileRequest]);
 
-  async function run(action: (signal: AbortSignal) => Promise<void>): Promise<boolean> {
+  async function run(action: (signal: AbortSignal) => Promise<void>, settings?: { timeout?: number; quiet?: boolean; onError?: (error: unknown) => void }): Promise<boolean> {
     if (operation.current) return false;
     if (!adapter.configured) { notify(new AuthError('not-configured').message); return false; }
     const abort = new AbortController();
     operation.current = abort; revision.current++;
     restoring.current?.abort(); restoring.current = null;
     setBusy(true);
-    const timer = setTimeout(() => abort.abort(), 15000);
+    const timer = setTimeout(() => abort.abort(), settings?.timeout ?? 15000);
     try {
       await abortable(action(abort.signal), abort.signal);
       return !abort.signal.aborted && mounted.current;
     } catch (error) {
-      if (mounted.current) {
+      if (mounted.current) settings?.onError?.(error);
+      if (mounted.current && !settings?.quiet) {
         handleFailure(error);
       }
       return false;
@@ -237,33 +252,75 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
       if (mounted.current) setBusy(false);
     }
   }
-  const acceptSession = async (signal: AbortSignal) => {
-    const value = checkedSession(await retryAuthRead(() => adapter.getSession(signal), signal));
+  async function recoverRegistration(input?: RegistrationInput): Promise<boolean> {
+    if (operation.current || !adapter.createRegistrationRecovery) return false;
+    if (!adapter.registrationAvailable) {
+      setRegistration({ state: 'ERROR', message: safeAuthMessage(new AuthError('contract-pending')) });
+      return false;
+    }
+    if (input) {
+      if (registrationReceipt.current) return false;
+      registrationReceipt.current = adapter.createRegistrationRecovery();
+    }
+    const receipt = registrationReceipt.current;
+    if (!receipt) return false;
+    let confirmed = false;
+    setRegistration({ state: 'LOADING' });
+    return run(async signal => {
+      registrationRequest.current = operation.current;
+      const result = await (input ? receipt.start(input, signal) : receipt.check(signal));
+      confirmed = result.state === 'SUCCESS';
+      if (mounted.current) setRegistration(result);
+      registrationRequest.current = null;
+    }, { timeout: 120000, quiet: true }).then(completed => completed && confirmed).finally(() => {
+      if (mounted.current) setRegistration(value => value?.state === 'LOADING' ? { state: 'UNCERTAIN' } : value);
+    });
+  }
+  const acceptSession = async (signal: AbortSignal, expectedEmail?: string) => {
+    const value = checkedSession(await retryAuthRead(() => expectedEmail ? timedRequest(s => adapter.getSession(s), signal).catch(error => { throw error instanceof AuthError ? error : new AuthError('network'); }) : adapter.getSession(signal), signal));
     if (!mounted.current || signal.aborted) return;
     if (!value) throw new AuthError('invalid-response');
+    if (expectedEmail && value.user.email.toLowerCase() !== expectedEmail.toLowerCase()) throw new AuthError('invalid-response');
     apply(value);
   };
   return <Context.Provider value={{
+    registration, recoveryAvailable: !!adapter.createRegistrationRecovery,
+    loginTransfer, clearLoginTransfer: () => setLoginTransfer(null),
+    cancelLogin: () => loginRequest.current?.abort(),
+    registrationCanCheck: registrationReceipt.current?.canCheck() === true,
+    checkRegistration: () => recoverRegistration(),
+    cancelRegistration: () => registrationRequest.current?.abort(),
     session, status, busy, configured: adapter.configured, registrationAvailable: adapter.registrationAvailable === true, passwordPolicy: adapter.passwordPolicy,
     notice, notify, dismissNotice: () => setNotice(null), refresh,
-    login: input => run(async signal => {
-      try { await adapter.signIn(input, signal); }
+    login: input => {
+      if (operation.current) return Promise.resolve(false);
+      setLoginTransfer({ state: 'LOADING' });
+      return run(async signal => {
+      loginRequest.current = operation.current;
+      try { await timedRequest(s => adapter.signIn(input, s), signal).catch(error => { throw error instanceof AuthError ? error : new AuthError('network'); }); }
       catch (error) {
-        if (!transientAuthError(error)) throw error;
+        if (!transientAuthError(error) && !(error instanceof AuthError && error.code === 'invalid-response')) throw error;
         // A lost POST response may already have created a session. Never replay it
         // without a confirmed backend idempotency contract; recover through reads.
         const recovered = await retryAuthRead(async () => {
-          const value = checkedSession(await adapter.getSession(signal));
+          const value = checkedSession(await timedRequest(s => adapter.getSession(s), signal).catch(error => { throw error instanceof AuthError ? error : new AuthError('network'); }));
           if (!value || value.user.email.toLowerCase() !== input.email.toLowerCase()) throw error;
           return value;
         }, signal);
-        if (mounted.current && !signal.aborted) { apply(recovered); setReauthentication(null); notify('Sie sind angemeldet.', 'Anmeldung', 'success'); }
+        if (mounted.current && !signal.aborted) { apply(recovered); setReauthentication(null); setLoginTransfer({ state: 'SUCCESS' }); }
         return;
       }
-      await acceptSession(signal);
-      if (mounted.current && !signal.aborted) { setReauthentication(null); notify('Sie sind angemeldet.', 'Anmeldung', 'success'); }
-    }),
-    register: input => run(async signal => {
+      await acceptSession(signal, input.email);
+      if (mounted.current && !signal.aborted) { setReauthentication(null); setLoginTransfer({ state: 'SUCCESS' }); }
+    }, { timeout: 120000, quiet: true, onError: error => setLoginTransfer(
+      transientAuthError(error) || (error instanceof AuthError && error.code === 'invalid-response')
+        ? { state: 'UNCERTAIN' } : { state: 'ERROR', message: safeAuthMessage(error) },
+    ) }).then(ok => {
+      loginRequest.current = null;
+      if (!ok && mounted.current) setLoginTransfer(value => value?.state === 'LOADING' ? { state: 'UNCERTAIN' } : value);
+      return ok;
+    }); },
+    register: input => adapter.createRegistrationRecovery ? recoverRegistration(input) : run(async signal => {
       if (!adapter.registrationAvailable) throw new AuthError('contract-pending');
       const next = await adapter.signUp(input, signal);
       if (!mounted.current || signal.aborted) return;

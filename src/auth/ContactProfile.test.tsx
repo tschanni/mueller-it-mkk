@@ -41,6 +41,8 @@ afterEach(() => jest.useRealTimers());
 test('contact information starts collapsed and retains the editable form when expanded', async () => {
   mount(); await ready();
   const summary = screen.getByText('Kontaktinformationen');
+  // Inspect the native disclosure state; jsdom exposes no named details role.
+  // eslint-disable-next-line testing-library/no-node-access
   const details = summary.closest('details')!;
   expect(details).not.toHaveAttribute('open');
   fireEvent.click(summary);

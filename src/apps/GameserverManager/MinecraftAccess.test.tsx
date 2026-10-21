@@ -215,3 +215,28 @@ test('keeps confirmed command separate from a contradictory valid observation', 
   expect(screen.queryByText('Du bist bereit zum Spielen!')).not.toBeInTheDocument();
   expect(screen.getByText(/Der beobachtete Zustand stimmt noch nicht/)).toBeInTheDocument();
 });
+
+test('live whitelist panel removes private data and aborts the list request on logout', async () => {
+  const original = process.env.REACT_APP_MINECRAFT_LIVE_WHITELIST;
+  process.env.REACT_APP_MINECRAFT_LIVE_WHITELIST = 'true';
+  let resolveList!: (value: unknown) => void;
+  try {
+    current = { ...base, discord: { linked: true, membership: 'MEMBER' }, minecraft: { ...linked, stale: false } };
+    fetchMock.mockImplementation((url: string) => {
+      if (url.endsWith('/whitelist-status')) return Promise.resolve(response({ linked: true, uuid: linked.uuid, whitelistState: 'WHITELISTED' }));
+      if (url.endsWith('/whitelist')) return new Promise(resolve => { resolveList = resolve; });
+      return Promise.resolve(response(current));
+    });
+    const { rerender } = render(<MinecraftAccessPanel />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/whitelist$/), expect.anything()));
+    const request = fetchMock.mock.calls.find(([url]) => url.endsWith('/whitelist'))!;
+    mockSession = null; rerender(<MinecraftAccessPanel />);
+    expect(request[1].signal.aborted).toBe(true);
+    await act(async () => resolveList(response({ source: 'LIVE_SERVER', players: [{ uuid: linked.uuid, username: 'Private_Player', isCurrentUser: true }] })));
+    expect(screen.queryByText('Private_Player')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Anmelden' })).toBeInTheDocument();
+  } finally {
+    if (original === undefined) delete process.env.REACT_APP_MINECRAFT_LIVE_WHITELIST;
+    else process.env.REACT_APP_MINECRAFT_LIVE_WHITELIST = original;
+  }
+});

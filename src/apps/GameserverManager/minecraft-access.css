@@ -57,3 +57,8 @@
 .mc98-gate{padding:24px;max-width:520px;margin:12px auto;background:#d3d3d3;box-shadow:inset 1px 1px #fff,inset -1px -1px #808080}
 .mc98-gate p{margin:12px 0 18px}
 @media(max-width:760px){.mc98-steps{grid-template-columns:1fr}.mc98-step{padding:14px}.mc98-header{gap:10px}.mc98-header>button{width:100%}.mc98-account button{width:100%}}
+
+.mc98-whitelist { list-style: none; padding: 0; display: grid; gap: 12px; }
+.mc98-whitelist li { display: flex; align-items: center; gap: 12px; min-width: 0; flex-wrap: wrap; }
+.mc98-whitelist strong { overflow-wrap: anywhere; }
+.mc98-whitelist .mc98-skin, .mc98-whitelist .mc98-skin-placeholder { flex-shrink: 0; }

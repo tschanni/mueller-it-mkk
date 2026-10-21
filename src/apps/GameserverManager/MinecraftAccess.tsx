@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import './minecraft-access.css';
 import { publicAsset } from '../../utils/publicAsset';
 import { WhitelistIcon } from './WhitelistIcon';
+import { MinecraftWhitelist } from './MinecraftWhitelist';
+import { useLiveWhitelist } from './useLiveWhitelist';
 import { MinecraftProfile } from './MinecraftProfile';
 import { WhitelistState, WhitelistOperation, LastCommand, commandMessage, unknownWhitelist } from './whitelistStatus';
 
@@ -44,8 +46,10 @@ export function MinecraftAccess({
   apiBase,
   accountSettingsUrl = '/settings/accounts',
   onLinkDiscord,
+  liveWhitelist = process.env.REACT_APP_MINECRAFT_LIVE_WHITELIST === 'true',
 }: {
   apiBase: string;
+  liveWhitelist?: boolean;
   accountSettingsUrl?: string;
   onLinkDiscord?: () => void;
 }) {
@@ -62,10 +66,20 @@ export function MinecraftAccess({
   const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const endpoint = `${apiBase.replace(/\/$/, '')}/api/v1/me/minecraft`;
+  const live = useLiveWhitelist(endpoint, liveWhitelist && Boolean(status?.enabled) && !busy, status?.minecraft?.uuid);
+  const lifetime = useRef(new AbortController());
+  useEffect(() => {
+    const controller = new AbortController();
+    lifetime.current = controller;
+    return () => controller.abort();
+  }, []);
   const api = useCallback(
     async (path = '', body?: object, signal?: AbortSignal) => {
+      const owner = lifetime.current;
+      if (owner.signal.aborted) throw new Error('Aborted');
       const timeout = new AbortController();
       const abort = () => timeout.abort();
+      owner.signal.addEventListener('abort', abort, { once: true });
       signal?.addEventListener('abort', abort, { once: true });
       if (signal?.aborted) abort();
       const timer = setTimeout(abort, body ? 45000 : 10000);
@@ -83,7 +97,8 @@ export function MinecraftAccess({
               }
             : {}),
         });
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
+        if (owner.signal.aborted || signal?.aborted) throw new Error('Aborted');
         if (!data || typeof data !== 'object')
           throw new MinecraftRequestError(
             'Die Serverantwort konnte nicht geprüft werden.',
@@ -103,6 +118,7 @@ export function MinecraftAccess({
         return data;
       } finally {
         clearTimeout(timer);
+        owner.signal.removeEventListener('abort', abort);
         signal?.removeEventListener('abort', abort);
       }
     },
@@ -112,7 +128,7 @@ export function MinecraftAccess({
     const controller = new AbortController();
     // One initial read; refresh remains explicit, including after OAuth return.
     void api('', undefined, controller.signal)
-      .then(setStatus)
+      .then(data => { if (!controller.signal.aborted) setStatus(data); })
       .catch((e: unknown) => {
         if (!controller.signal.aborted)
           setError({
@@ -133,6 +149,7 @@ export function MinecraftAccess({
   }, [error]);
   async function act(path: string, body: object = {}) {
     if (inFlight.current) return;
+    const owner = lifetime.current;
     inFlight.current = true;
     setBusy(true);
     setCommandError(null);
@@ -158,6 +175,7 @@ export function MinecraftAccess({
         setCheckedAt(null);
       }
     } catch (e) {
+      if (owner.signal.aborted) return;
       const failure: ApiError =
         e instanceof MinecraftRequestError
           ? e
@@ -193,8 +211,9 @@ export function MinecraftAccess({
         setReadFailed(true);
       }
     } finally {
+      if (liveWhitelist && !owner.signal.aborted) live.refresh();
       inFlight.current = false;
-      setBusy(false);
+      if (!owner.signal.aborted) setBusy(false);
     }
   }
   function dismiss() {
@@ -203,7 +222,7 @@ export function MinecraftAccess({
   }
   const needsDiscord = error?.code === 'DISCORD_NOT_LINKED';
   const mc = status?.minecraft;
-  const observed = readFailed || mc?.stale ? 'UNKNOWN' : mc?.whitelistState ?? operation?.whitelistState ?? 'UNKNOWN';
+  const observed = liveWhitelist ? live.state : readFailed || mc?.stale ? 'UNKNOWN' : mc?.whitelistState ?? operation?.whitelistState ?? 'UNKNOWN';
   const state: WhitelistState = observed === 'WHITELISTED' || observed === 'NOT_WHITELISTED' ? observed : 'UNKNOWN';
   const stateLabel = state === 'WHITELISTED' ? 'Freigeschaltet' : state === 'NOT_WHITELISTED' ? 'Nicht freigeschaltet' : 'Unbekannt';
   const command = operation ?? mc?.lastCommand;
@@ -224,7 +243,10 @@ export function MinecraftAccess({
       {resultMessage && <div className="mc98-command-result" role="status"><strong>{operation || commandError ? 'Ergebnis der Anfrage' : 'Letzter Schreibbefehl'}</strong><p>{resultMessage}</p></div>}
       {syncError && state !== 'UNKNOWN' && <p role="status">Der beobachtete Zustand stimmt noch nicht mit dem angefragten Ziel überein. Bitte prüfe den Status erneut.</p>}
       {status && !status.enabled && <p role="status">Der Minecraft-Zugang ist noch nicht eingerichtet.</p>}
-      <div className="mc98-steps">
+      {liveWhitelist && live.error && <p role="alert">{live.error}</p>}
+      {liveWhitelist && (state === 'UNKNOWN' || live.error) && <button disabled={busy || live.loading} onClick={live.refresh}>Erneut prüfen</button>}
+      {liveWhitelist && state === 'WHITELISTED' && <MinecraftWhitelist players={live.players} />}
+      {!(liveWhitelist && (state === 'WHITELISTED' || (mc && state === 'UNKNOWN'))) && <div className="mc98-steps">
         <section className="mc98-step">
           <div className="mc98-step-heading"><span className="mc98-step-icon"><WhitelistIcon kind="discord" /></span><div><span className="mc98-eyebrow">SCHRITT 01</span><h3>Discord verbinden</h3></div></div>
           <p>Dein Discord-Konto und die Mitgliedschaft auf Lahadde sind Voraussetzung.</p>
@@ -252,7 +274,7 @@ export function MinecraftAccess({
           {busy && <p role="status">Aktion wird ausgeführt …</p>}
           {mc && <dl className="mc98-sync"><dt>Letzter erfolgreicher Abgleich</dt><dd>{mc.lastSyncedAt ? new Date(mc.lastSyncedAt).toLocaleString('de-DE') : 'Noch keiner'}</dd></dl>}
         </section>
-      </div>
+      </div>}
       {mc && <footer className="mc98-account"><MinecraftProfile uuid={mc.uuid} username={mc.username} /><button disabled={busy || !status?.enabled} onClick={() => void act('/unlink')}>Minecraft-Verknüpfung entfernen</button></footer>}
       {(mc?.lastErrorCode || syncError || command) && <details className="mc98-diagnostics"><summary>Technische Diagnose</summary><dl><dt>Whitelist-Zustand</dt><dd>{state}</dd>{command && <><dt>Befehlsresultat</dt><dd>{command.action}: {command.outcome}</dd></>}{syncError && <><dt>Statusabgleich</dt><dd>{syncError}</dd></>}{mc?.lastErrorCode && <><dt>Fehlercode</dt><dd>{mc.lastErrorCode}</dd></>}</dl></details>}
       <dialog

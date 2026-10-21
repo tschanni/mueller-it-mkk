@@ -245,7 +245,7 @@ export function MinecraftAccess({
       {status && !status.enabled && <p role="status">Der Minecraft-Zugang ist noch nicht eingerichtet.</p>}
       {liveWhitelist && live.error && <p role="alert">{live.error}</p>}
       {liveWhitelist && (state === 'UNKNOWN' || live.error) && <button disabled={busy || live.loading} onClick={live.refresh}>Erneut prüfen</button>}
-      {liveWhitelist && state === 'WHITELISTED' && <MinecraftWhitelist players={live.players} />}
+      {liveWhitelist && state === 'WHITELISTED' && <MinecraftWhitelist players={live.players} apiBase={apiBase} />}
       {!(liveWhitelist && (state === 'WHITELISTED' || (mc && state === 'UNKNOWN'))) && <div className="mc98-steps">
         <section className="mc98-step">
           <div className="mc98-step-heading"><span className="mc98-step-icon"><WhitelistIcon kind="discord" /></span><div><span className="mc98-eyebrow">SCHRITT 01</span><h3>Discord verbinden</h3></div></div>
@@ -275,7 +275,7 @@ export function MinecraftAccess({
           {mc && <dl className="mc98-sync"><dt>Letzter erfolgreicher Abgleich</dt><dd>{mc.lastSyncedAt ? new Date(mc.lastSyncedAt).toLocaleString('de-DE') : 'Noch keiner'}</dd></dl>}
         </section>
       </div>}
-      {mc && <footer className="mc98-account"><MinecraftProfile uuid={mc.uuid} username={mc.username} /><button disabled={busy || !status?.enabled} onClick={() => void act('/unlink')}>Minecraft-Verknüpfung entfernen</button></footer>}
+      {mc && <footer className="mc98-account"><MinecraftProfile uuid={mc.uuid} username={mc.username} apiBase={apiBase} /><button disabled={busy || !status?.enabled} onClick={() => void act('/unlink')}>Minecraft-Verknüpfung entfernen</button></footer>}
       {(mc?.lastErrorCode || syncError || command) && <details className="mc98-diagnostics"><summary>Technische Diagnose</summary><dl><dt>Whitelist-Zustand</dt><dd>{state}</dd>{command && <><dt>Befehlsresultat</dt><dd>{command.action}: {command.outcome}</dd></>}{syncError && <><dt>Statusabgleich</dt><dd>{syncError}</dd></>}{mc?.lastErrorCode && <><dt>Fehlercode</dt><dd>{mc.lastErrorCode}</dd></>}</dl></details>}
       <dialog
         className="mc98 mc98-dialog"

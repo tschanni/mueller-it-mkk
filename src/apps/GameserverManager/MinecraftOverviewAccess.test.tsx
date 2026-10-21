@@ -11,16 +11,19 @@ beforeEach(() => {
 });
 
 test('replaces invitation with linked profile and keeps management accessible', async () => {
-  mockFetch.mockImplementation(async (url: string) => url.includes('mc-api.io') ? { ok: false } : { ok: true, json: async () => ({ minecraft: { username: 'Player_123', uuid: '12345678-1234-1234-1234-123456789abc' } }) });
+  mockFetch.mockResolvedValue({ ok: true, json: async () => ({ minecraft: { username: 'Player_123', uuid: '12345678-1234-1234-1234-123456789abc' } }) });
   const open = jest.fn();
   const { rerender } = render(<MinecraftOverviewAccess onOpen={open} />);
   await screen.findByText('Verknüpftes Profil: Player_123');
   expect(screen.getByText('12345678-1234-1234-1234-123456789abc')).toBeInTheDocument();
+  expect(screen.getByRole('img')).toHaveAttribute('src', expect.stringContaining('/api/v1/public/minecraft/avatars/12345678-1234-1234-1234-123456789abc'));
+  expect(mockFetch).toHaveBeenCalledTimes(1);
   expect(screen.queryByText(/Du willst Teil/)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Whitelist verwalten' }));
   expect(open).toHaveBeenCalledTimes(1);
   mockSession = null;
   rerender(<MinecraftOverviewAccess onOpen={open} />);
+  expect(screen.queryByRole('img')).not.toBeInTheDocument();
   expect(screen.queryByText('Verknüpftes Profil: Player_123')).not.toBeInTheDocument();
 });
 

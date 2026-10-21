@@ -22,6 +22,7 @@ function Probe({ id = uuid }: { id?: string }) {
 test('confirmed whitelist includes manual accounts, own marker, count and manual refresh', async () => {
   render(<MinecraftAccess apiBase="https://api.example" liveWhitelist />);
   await screen.findByText('Manual_Player');
+  expect(screen.getByRole('img', { name: 'Minecraft-Skin von Manual_Player' })).toHaveAttribute('src', 'https://api.example/api/v1/public/minecraft/avatars/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
   expect(screen.getByText('Du')).toBeInTheDocument();
   expect(screen.getByText(/2 Spieler/)).toBeInTheDocument();
   expect(screen.getByText('Du bist bereit zum Spielen!')).toBeInTheDocument();

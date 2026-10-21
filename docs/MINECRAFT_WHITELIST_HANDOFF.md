@@ -1,5 +1,7 @@
 # FRONTEND-CODEX-ÜBERGABE AN CHATGPT – MINECRAFT-WHITELIST
 
+**Nachtrag:** Der hier beschriebene Avatar-Übergang und der vorgeschlagene Proxy-Vertrag wurden durch die [Avatar-Proxy-Umstellung](MINECRAFT_AVATAR_PROXY_HANDOFF.md) abgelöst. Die folgenden Angaben dokumentieren den damaligen Whitelist-Commit.
+
 Stand: 21.10.2026. Repository: tschanni/mueller-it-mkk.
 Ausgangscommit: a7da57bc011e5afa14e70919a5fbf16172e802ca.
 Implementierungscommit: siehe Commit dieser Datei (`git log -1 --format=%H -- docs/MINECRAFT_WHITELIST_HANDOFF.md`).

@@ -173,12 +173,30 @@ test('local HTTP configuration is allowed only explicitly for development', () =
 test('callback parsing handles only documented paths and does not expose raw error descriptions', () => {
   expect(readAuthReturn(new URL('https://www.mueller-it-mkk.de/auth/error?error=denied&error_description=SECRET'))).toEqual({ kind: 'oauth', failed: true });
   expect(readAuthReturn(new URL('https://www.mueller-it-mkk.de/auth/callback/'))).toEqual({ kind: 'oauth', failed: false });
-  expect(readAuthReturn(new URL('https://www.mueller-it-mkk.de/settings/accounts?error=access_denied'))).toEqual({ kind: 'account', failed: true });
+  expect(readAuthReturn(new URL('https://www.mueller-it-mkk.de/settings/accounts?error=access_denied'))).toEqual({ kind: 'account', failed: true, message: 'Die Discord-Autorisierung wurde abgebrochen oder abgelehnt.' });
   expect(readAuthReturn(new URL('https://www.mueller-it-mkk.de/auth/verified?error=INVALID_TOKEN'))).toEqual({ kind: 'verified', failed: true });
   expect(readAuthReturn(new URL('https://www.mueller-it-mkk.de/reset-password?token=once'))).toEqual({ kind: 'reset', token: 'once' });
   expect(readAuthReturn(new URL('https://www.mueller-it-mkk.de/reset-password?error=INVALID_TOKEN'))).toEqual({ kind: 'reset', token: null });
   expect(readAuthReturn(new URL('https://www.mueller-it-mkk.de/reset-password?token=a&token=b'))).toEqual({ kind: 'reset', token: null });
   expect(readAuthReturn(new URL('https://www.mueller-it-mkk.de/?error=unrelated'))).toEqual({ kind: 'desktop' });
+});
+
+test.each([
+  ['state_mismatch', 'Sicherheitsprüfung'],
+  ['invalid_code', 'Anmeldecode'],
+  ['account_not_linked', 'noch nicht'],
+  ['account_already_linked_to_different_user', 'anderen Benutzerkonto'],
+  ['email_does_not_match', 'stimmt nicht'],
+])('OAuth callback classifies allowlisted error %s without exposing query data', (code, fragment) => {
+  const result = readAuthReturn(new URL(`https://www.mueller-it-mkk.de/auth/error?error=${code}&error_description=PRIVATE_TOKEN&code=SECRET&state=SECRET`));
+  expect(result).toMatchObject({ kind: 'oauth', failed: true, message: expect.stringContaining(fragment) });
+  expect(JSON.stringify(result)).not.toMatch(/PRIVATE_TOKEN|SECRET/);
+});
+
+test('unknown or repeated OAuth errors retain the generic message', () => {
+  expect(readAuthReturn(new URL('https://www.mueller-it-mkk.de/auth/error?error=SECRET'))).toEqual({ kind: 'oauth', failed: true });
+  expect(readAuthReturn(new URL('https://www.mueller-it-mkk.de/auth/error?error=__proto__'))).toEqual({ kind: 'oauth', failed: true });
+  expect(readAuthReturn(new URL('https://www.mueller-it-mkk.de/auth/error?error=invalid_code&error=SECRET'))).toEqual({ kind: 'oauth', failed: true });
 });
 
 test('transport, server failure and HTTP 401 remain distinct', async () => {

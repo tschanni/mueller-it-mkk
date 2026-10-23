@@ -223,7 +223,7 @@ test('Discord failures and documented callback errors display a safe message', a
   const adapter = adapterForTest();
   adapter.startDiscord.mockResolvedValue('https://discord.com.attacker.example/login');
   const { redirect } = mount(adapter); await ready();
-  await screen.findByText(/Discord-Anmeldung wurde abgebrochen/);
+  await screen.findByText(/Discord-Autorisierung wurde abgebrochen/);
   fireEvent.click(screen.getByRole('button', { name: 'OK' }));
   const login = screen.getByRole('dialog', { name: 'Mueller IT MKK Welt Anmeldung' });
   fireEvent.click(within(login).getByRole('button', { name: 'Mit Discord anmelden' }));
@@ -494,7 +494,7 @@ test('linking callbacks sanitize error queries and reopen the account window', a
   window.history.replaceState(null, '', '/settings/accounts?error=access_denied&error_description=SECRET');
   const adapter = linkedAdapter(); adapter.listAccounts.mockResolvedValue([credentialAccount]);
   mount(adapter); await ready();
-  await screen.findByText('Das Discord-Konto konnte nicht verknüpft werden. Bitte versuchen Sie es erneut.');
+  await screen.findByText('Die Discord-Autorisierung wurde abgebrochen oder abgelehnt.');
   const dialog = await screen.findByRole('dialog', { name: 'Mein Konto' });
   await within(dialog).findByText('E-Mail und Passwort');
   expect(screen.queryByText(/SECRET/)).not.toBeInTheDocument();

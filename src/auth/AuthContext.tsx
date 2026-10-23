@@ -138,7 +138,7 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
       if (entry.kind !== 'desktop') window.history.replaceState(null, '', '/');
       if (entry.kind === 'oauth' && entry.failed) {
         setEntryWindow('auth-login');
-        notify(entry.verificationRequired ? 'Bitte best\u00e4tigen Sie zuerst Ihre E-Mail-Adresse. Starten Sie danach die Discord-Anmeldung erneut.' : new AuthError('oauth').message, 'Discord-Anmeldung', entry.verificationRequired ? 'warning' : 'error');
+        notify(entry.message ?? new AuthError('oauth').message, 'Discord-Anmeldung', entry.verificationRequired ? 'warning' : 'error');
       }
       if (entry.kind === 'verified') {
         setEntryWindow('auth-login');
@@ -150,7 +150,7 @@ export function AuthProvider({ children, adapter = authClient, redirect = naviga
       }
       if (entry.kind === 'account') {
         setEntryWindow('auth-account');
-        if (entry.failed) notify('Das Discord-Konto konnte nicht verknüpft werden. Bitte versuchen Sie es erneut.', 'Mein Konto', 'error');
+        if (entry.failed) notify(entry.message ?? 'Das Discord-Konto konnte nicht verknüpft werden. Bitte versuchen Sie es erneut.', 'Mein Konto', 'error');
       }
     }
     let disposed = false;
